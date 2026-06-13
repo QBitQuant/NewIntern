@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>An Image of Yourself and Attach It to This Discord Chat</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg-primary:#36393f;--bg-secondary:#2f3136;--bg-tertiary:#202225;
+    --bg-floating:#181818;--bg-input:#36393f;--text-normal:#dcddde;
+    --text-muted:#72767d;--text-link:#00b0f4;--accent:#5865f2;
+    --accent-hover:#4752c4;--green:#43b581;--red:#da373c;
+    --border-color:#26272d;--scrollbar-thumb:#1a1b1e;
+  }
+  html,body{height:100%;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--bg-primary);color:var(--text-normal)}
+  body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  /* Header */
+  .header{background:var(--bg-tertiary);padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border-color)}
+  .header-icon{width:36px;height:36px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:18px}
+  .header-title{font-size:16px;font-weight:700;color:#fff}
+  .header-subtitle{font-size:12px;color:var(--text-muted)}
+
+  /* Main layout */
+  .main{display:flex;flex:1;overflow:hidden}
+
+  /* Sidebar */
+  .sidebar{width:240px;background:var(--bg-secondary);display:flex;flex-direction:column;border-right:1px solid var(--border-color)}
+  .server-list{padding:8px;display:flex;flex-direction:column;gap:6px}
+  .server-icon{width:44px;height:44px;border-radius:50%;background:var(--bg-tertiary);display:flex;align-items:center;justify-content:center;color:var(--text-normal);font-size:18px;cursor:pointer;transition:.2s;position:relative}
+  .server-icon:hover,.server-icon.active{border-radius:14px;background:var(--accent);color:#fff}
+  .server-icon img{width:36px;height:36px;border-radius:50%}
+  .server-separator{height:2px;background:var(--border-color);margin:4px 8px;position:relative}
+  .server-separator::after{content:'+';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(0deg);width:26px;height:26px;background:var(--bg-tertiary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--green);font-size:18px}
+  .channel-list{padding:4px 8px;display:flex;flex-direction:column;gap:2px;margin-top:8px}
+  .channel-header{font-size:11px;font-weight:700;color:var(--text-muted);padding:6px 8px;text-transform:uppercase;letter-spacing:.5px}
+  .channel{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:4px;cursor:pointer;color:var(--text-muted);font-size:14px;transition:.1s}
+  .channel:hover{background:rgba(255,255,255,.04);color:var(--text-normal)}
+  .channel.active{background:rgba(255,255,255,.08);color:#fff}
+  .channel-hash{font-size:18px;font-weight:300;opacity:.6}
+
+  /* Chat area */
+  .chat-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .chat-header{padding:12px 16px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:8px;background:var(--bg-tertiary)}
+  .chat-hash{color:var(--text-muted);font-size:20px;font-weight:300}
+  .chat-channel-name{font-size:16px;font-weight:700;color:#fff}
+  .chat-topic{font-size:12px;color:var(--text-muted);margin-top:2px}
+
+  /* Messages */
+  .messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin;scrollbar-color:var(--scrollbar-thumb) transparent}
+  .messages::-webkit-scrollbar{width:8px}
+  .messages::-webkit-scrollbar-track{background:transparent}
+  .messages::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:4px}
+
+  /* Welcome message */
+  .welcome-msg{margin-bottom:16px;padding:20px;background:rgba(88,101,242,.05);border-radius:8px;border-left:3px solid var(--accent)}
+  .welcome-msg h2{font-size:28px;color:#fff;margin-bottom:6px}
+  .welcome-msg p{color:var(--text-muted);font-size:14px;line-height:1.5}
+
+  /* Message */
+  .message{display:flex;gap:12px;padding:4px 0;transition:.1s}
+  .message:hover{background:rgba(0,0,0,.08)}
+  .msg-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:16px}
+  .msg-body{flex:1;min-width:0}
+  .msg-header{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+  .msg-author{font-size:14px;font-weight:600;color:#fff;cursor:pointer}
+  .msg-author:hover{text-decoration:underline}
+  .msg-timestamp{font-size:11px;color:var(--text-muted)}
+  .msg-content{font-size:14px;line-height:1.5;color:var(--text-normal);word-wrap:break-word}
+
+  /* Image attachment */
+  .msg-image-container{margin-top:6px;max-width:380px;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;position:relative;display:inline-block}
+  .msg-image-container img{max-width:100%;border-radius:4px;display:block;transition:.2s}
+  .msg-image-container:hover img{opacity:.95}
+  .img-overlay{position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;opacity:0;transition:.2s;border-radius:4px}
+  .msg-image-container:hover .img-overlay{opacity:1}
+
+  /* Image preview modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:none;align-items:center;justify-content:center;cursor:pointer}
+  .modal-backdrop.visible{display:flex}
+  .modal-backdrop img{max-width:90vw;max-height:85vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+
+  /* Date divider */
+  .date-divider{display:flex;align-items:center;gap:12px;padding:8px 0;margin:12px 0}
+  .date-divider::before,.date-divider::after{content:'';flex:1;height:1px;background:var(--border-color)}
+  .date-divider span{font-size:12px;font-weight:600;color:var(--text-muted);white-space:nowrap}
+
+  /* Input area */
+  .input-area{padding:0 16px 24px;flex-shrink:0}
+  .input-wrapper{background:var(--bg-secondary);border-radius:8px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--border-color)}
+  .attach-btn{width:36px;height:36px;display:flex;alignaries:center;justify-content:center;color:var(--text-muted);cursor:pointer;font-size:20px;transition:.1s}
+  .attach-btn:hover{color:var(--accent)}
+  #message-input{flex:1;background:transparent;border:none;outline:none;color:var(--text-normal);font-size:14px;padding:10px 8px;font-family:inherit}
+  #message-input::placeholder{color:var(--text-muted)}
+
+  /* Image preview bar */
+  .image-preview-bar{display:none;margin-bottom:8px;position:relative;background:var(--bg-secondary);border-radius:6px;padding:8px;border:1px solid var(--accent)}
+  .image-preview-bar.visible{display:flex;align-items:center;gap:10px}
+  .preview-thumb{width:52px;height:52px;border-radius:4px;object-fit:cover;background:#000}
+  .preview-info{flex:1;font-size:13px;color:var(--text-muted)}
+  .preview-remove{color:var(--red);cursor:pointer;font-size:18px;padding:4px 6px;border-radius:4px;transition:.1s}
+  .preview-remove:hover{background:rgba(218,55,60,.15)}
+
+  /* Emoji / send button */
+  .send-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer;font-size:20px;border-radius:4px;transition:.1s}
+  .send-btn:hover{color:var(--accent)}
+
+  /* Typing indicator */
+  .typing-indicator{padding:4px 16px;font-size:12px;color:var(--text-muted);height:20px;display:flex;align-items:center;gap:4px}
+  .typing-dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--text-muted);animation:bounce 1.4s infinite both;margin-right:-3px}
+  .typing-dots span:nth-child(2){animation-delay:.2s}
+  .typing-dots span:nth-child(3{animation-delay:.4s}
+  @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+
+  /* Upload zone */
+  .upload-zone{border:2px dashed var(--border-color);border-radius:8px;padding:32px;text-align:center;color:var(--text-muted);margin-bottom:12px;transition:.2s;display:none}
+  .upload-zone.visible{display:block}
+  .upload-zone.dragover{border-color:var(--accent);background:rgba(88,101,242,.05)}
+  .upload-zone svg{width:48px;height:48px;margin-bottom:8px;opacity:.5}
+
+  /* Responsive */
+  @media(max-width:768px){
+    .sidebar{display:none}
+    .msg-avatar{width:32px;height:32px;font-size:13px}
+    .welcome-msg h2{font-size:20px}
+  }
+
+  /* Animations */
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .message{animation:fadeIn .25s ease-out}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-icon" title="OpenCode">O</div>
+  <div>
+    <div class="header-title">OpenCode Server</div>
+    <div class="header-subtitle">12 members online</div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="server-list">
+      <div class="server-icon active" title="OpenCode Server">O</div>
+      <div class="server-separator"></div>
+      <div class="server-icon" style="background:#5865f2;color:#fff;font-size:14px;">AI</div>
+      <div class="server-icon" style="background:#3ba55d;color:#fff;font-size:14px;">D</div>
+    </div>
+    <div class="channel-list">
+      <div class="channel-header">TEXT CHANNELS</div>
+      <div class="channel active"><span class="channel-hash">#</span><span>general</span></div>
+      <div class="channel"><span class="channel-hash">#</span><span>introductions</span></div>
+      <div class="channel"><span class="channel-hash">#</span><span>memes</span></div>
+      <div class="channel-header">VOICE CHANNELS</div>
+      <div class="channel"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 9H3v6h3l5.7 4.7L15 17V7l-3.3 4.7z"/><path d="M14 7v10l-8.5-5.2L14 7z" opacity=".5"/></svg><span>General</span></div>
+      <div class="channel"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 9H3v6h3l5.7 4.7L15 17V7l-3.3 4.7z"/><path d="M14 7v10l-8.5-5.2L14 7z" opacity=".5"/></svg><span>Music</span></div>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="chat-header">
+      <span class="chat-hash">#</span>
+      <div>
+        <div class="chat-channel-name" style="color:#fff;font-weight:700;">general</div>
+        <div class="chat-topic">An image of yourself and attach it to this Discord chat 📸</div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages">
+      <!-- Welcome -->
+      <div class="welcome-msg">
+        <h2>Welcome to #general!</hparameter>
+        <p>This is the start of the <strong>#general</strong> channel. Share an image of yourself and attach it here! Click the 📎 button below or drag &amp; drop an image.</p>
+      </div>
+
+      <!-- Date divider -->
+      <div class="date-divider"><span>Today</span></div>
+
+      <!-- Bot message -->
+      <div class="message">
+        <div class="msg-avatar" style="background:#5865f2;">🤖</div>
+        <div class="msg-body">
+          <div class="msg-header">
+            <span class="msg-author" style="color:#5865f2;">Bot</span>
+            <span style="font-size:10px;background:#5865f2;color:#fff;padding:1px 4px;border-radius:3px;vertical-align:middle;">BOT</span>
+            <span class="msg-timestamp">Today at 12:00 PM</span>
+          </div>
+          <div class="msg-content">Welcome to the server! 🎉 Feel free to introduce yourself and share a photo in this channel.</div>
+        </div>
+      </div>
+
+      <!-- Example user message -->
+      <div class="message">
+        <div class="msg-avatar" style="background:#e67e22;">A</div>
+        <div class="msg-body">
+          <div class="msg-header">
+            <span class="msg-author" style="color:#e67e22;">Alex</span>
+            <span class="msg-timestamp">Today at 12:05 PM</span>
+          </div>
+          <div class="msg-content">Hey everyone! Here's a photo of me:</div>
+          <div class="msg-image-container" onclick="openModal(this.querySelector('img').src)">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='380' height='250'%3E%3Crect fill='%234a6fa5' width='380' height='250'/%3E%3Ccircle cx='190' cy='95' r='45' fill='%23f5c6a9'/%3E%3Cellipse cx='190' cy='230' rx='70' ry='55' fill='%234a6fa5'/%3E%3Ctext x='190' y='110' text-anchor='middle' font-size='18' fill='%23fff'%3E📸 Selfie%3C/text%3E%3C/svg%3E" alt="Alex's photo" style="max-width:340px;border-radius:6px;">
+            <div class="img-overlay">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.58l.27.28v.79l5 4.99L20.49 19.5l-4.99-5.5zM11 13H9V6h2v7z" opacity=".8"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Another user -->
+      <div class="message">
+        <div class="msg-avatar" style="background:#e91e63;">S</div>
+        <div class="msg-body">
+          <div class="msg-header">
+            <span class="msg-author" style="color:#e91e63;">Sam</span>
+            <span class="msg-timestamp">Today at 12:08 PM</span>
+          </div>
+          <div class="msg-content">Nice! Here's mine too 😊</div>
+        </div>
+      </div>
+
+      <!-- Your message area -->
+    </div>
+
+    <!-- Typing indicator -->
+    <div class="typing-indicator" id="typingIndicator"></div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <!-- Image preview bar (shown when image is selected) -->
+      <div class="image-preview-bar" id="previewBar">
+        <img class="preview-thumb" id="previewThumb" src="" alt="">
+        <div class="preview-info" id="previewInfo"></div>
+        <span class="preview-remove" onclick="removeImage()" title="Remove image">✕</span>
+      </div>
+
+      <!-- Upload zone (visible when dragging) -->
+      <div class="upload-zone" id="uploadZone">
+        <svg viewBox="0 0 24 24" fill="#5865f2"><path d="M19.35 10.7a4.99 4.99 0 0 0-4.65-3.9A5 5 0 0 0 12 3c-1.86 0-3.53 1.02-4.38 2.57a5 5 0 0 0-4.65 3.9C1.9 11.5 1 12.9 1 14.5c0 2.48 1.8 4.5 4.1 4.7A5.99 5.99 0 0 0 12 21a6 6 0 0 0 6.9-1.8C21.2 19 23 17 23 14.5c0-1.5-.9-2.9-2.65-3.8zM12 18l-1.5-1.5L12 15l1.5 1.5L12 18zm0-7.5V4h1v6.5H12z"/></svg>
+        <div style="font-size:14px;">Drop your image here</div>
+      </div>
+
+      <div class="input-wrapper">
+        <!-- Attach button -->
+        <label class="attach-btn" title="Attach an image" id="attachBtn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 6v11.5c0 2.2-1.8 4-4 4s-4-1.8-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .8-.7 1.5-1.5 1.5S13.5 16.3 13.5 15.5V6H12v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V6h-1V5a4 4 0 0 0-4 4v12.5c0 3.03 2.47 5.5 5.5 5.5s5.5-2.47 5.5-5.5V6h-2z"/></svg>
+          <input type="file" id="fileInput" accept="image/*" style="display:none">
+        </label>
+
+        <!-- Message input -->
+        <input type="text" id="message-input" placeholder="Message #general" autocomplete="off">
+
+        <!-- Send button -->
+        <div class="send-btn" id="sendBtn" title="Send message">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1.1 19l5.8-1.7c.3-.1.6 0 .8.2l11.2 8.1c.4.3 1 .3 1.4-.1s.3-1-.1-1.4L7.8 13.9c-.2-.2-.3-.5-.2-.8L9.6 7.3l10.3 3.1c.5.2.8.7.6 1.2s-.7.8-1.2.6l-8.4-2.5-2.2 7.3z"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image modal -->
+<div class="modal-backdrop" id="imageModal" onclick="closeModal()">
+  <img id="modalImg" src="" alt="Full size image">
+</div>
+
+<script>
+(function(){
+  // Elements
+  const messagesEl = document.getElementById('messages');
+  const inputEl = document.getElementById('message-input');
+  const fileInput = document.getElementById('fileInput');
+  const previewBar = document.getElementById('previewBar');
+  const previewThumb = document.getElementById('previewThumb');
+  const previewInfo = document.getElementById('previewInfo');
+  const uploadZone = document.getElementById('uploadZone');
+  const imageModal = document.getElementById('imageModal');
+  const modalImg = document.getElementById('modalImg');
+  const sendBtn = document.getElementById('sendBtn');
+
+  let attachedImage = null; // { dataUrl, name }
+
+  // Scroll to bottom on load
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // --- File input handling ---
+  fileInput.addEventListener('change', function(){
+    if(this.files && this.files[0]){
+      handleFile(this.files[0]);
+    }
+    this.value = '';
+  });
+
+  function handleFile(file){
+    if(!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      attachedImage = { dataUrl: e.target.result, name: file.name };
+      previewThumb.src = e.target.result;
+      previewInfo.textContent = file.name + ' (' + formatSize(file.size) + ')';
+      previewBar.classList.add('visible');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeImage(){
+    attachedImage = null;
+    previewThumb.src = '';
+    previewBar.classList.remove('visible');
+  }
+
+  // --- Drag & Drop on the whole page ---
+  let dragCounter = 0;
+  document.addEventListener('dragenter', function(e){
+    e.preventDefault();
+    dragCounter++;
+    uploadZone.classList.add('visible','dragover');
+  });
+  document.addEventListener('dragleave', function(e){
+    e.preventDefault();
+    dragCounter--;
+    if(dragCounter <= 0){
+      dragCounter = 0;
+      uploadZone.classList.remove('dragover');
+      setTimeout(()=>uploadZone.classList.remove('visible'),200);
+    }
+  });
+  document.addEventListener('dragover', function(e){ e.preventDefault(); });
+  document.addEventListener('drop', function(e){
+    e.preventDefault();
+    dragCounter = 0;
+    uploadZone.classList.remove('dragover');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]){
+      handleFile(e.dataTransfer.files[0]);
+    }
+    setTimeout(()=>uploadZone.classList.remove('visible'),300);
+  });
+
+  // --- Send message ---
+  function sendMessage(){
+    const text = inputEl.value.trim();
+    if(!text && !attachedImage) return;
+
+    const now = new Date();
+    const timeStr = 'Today at ' + formatTime(now);
+
+    let html = '';
+    if(text){
+      html += escapeHtml(text).replace(/\n/g,'<br>');
+    }
+
+    // Create message element
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message';
+
+    // Avatar with random color based on "You"
+    const avatarBg = '#5865f2';
+    const authorColor = '#5865f2';
+
+    let bodyHtml = '';
+    if(text || attachedImage){
+      bodyHtml += '<div class="msg-header"><span class="msg-author" style="color:' + authorColor + '">You</span><span class="msg-timestamp">' + timeStr + '</span></div>';
+      if(html) bodyHtml += '<div class="msg-content">' + html + '</div>';
+      if(attachedImage){
+        bodyHtml += '<div class="msg-image-container" onclick="window.openModal(this.querySelector(\'img\').src)"><img src="' + attachedImage.dataUrl + '" alt="Your photo" style="max-width:340px;border-radius:6px;"><div class="img-overlay"><svg width="32" height="32" viewBox="0 0 24 24" fill="#fff"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.58l.27.28v.79l5 4.99L20.49 19.5l-4.99-5.5zM11 13H9V6h2v7z" opacity=".8"/></svg></div></div>';
+      }
+    }
+
+    msgDiv.innerHTML = '<div class="msg-avatar" style="background:' + avatarBg + '">Y</div><div class="msg-body">' + bodyHtml + '</div>';
+    messagesEl.appendChild(msgDiv);
+
+    // Clear input and image
+    inputEl.value = '';
+    removeImage();
+
+    // Scroll to bottom
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // --- Modal ---
+  window.openModal = function(src){
+    modalImg.src = src;
+    imageModal.classList.add('visible');
+  };
+  window.closeModal = function(){
+    imageModal.classList.remove('visible');
+    setTimeout(()=>{ modalImg.src = ''; }, 200);
+  };
+
+  // Close modal with Escape
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeModal();
+  });
+
+  // --- Helpers ---
+  function formatTime(d){
+    let h = d.getHours(), m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+  }
+
+  function formatSize(bytes){
+    if(bytes < 1024) return bytes + ' B';
+    if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/(1024*1024)).toFixed(1) + ' MB';
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // --- Simulate typing indicator occasionally ---
+  const names = ['Alex','Sam','Jordan','Taylor','Morgan'];
+  const msgs = [
+    'Nice photo! 😄',
+    'Welcome to the server!',
+    'That\'s a great picture!',
+    'Hey everyone 👋',
+    'Love it!',
+    'Cool!',
+    '📸',
+    'Looks great!'
+  ];
+
+  function simulateMessage(){
+    const name = names[Math.floor(Math.random()*names.length)];
+    const colorMap = {'Alex':'#e67e22','Sam':'#e91e63','Jordan':'#9b59b6','Taylor':'#3498db','Morgan':'#2ecc71'};
+    const msgText = msgs[Math.floor(Math.random()*msgs.length)];
+    const color = colorMap[name] || '#fff';
+    const now = new Date();
+
+    // Show typing first
+    const typingEl = document.getElementById('typingIndicator');
+    typingEl.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span> <strong>' + name + '</strong> is typing';
+
+    setTimeout(()=>{
+      typingEl.innerHTML = '';
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message';
+      const initial = name[0].toUpperCase();
+      let bodyHtml = '<div class="msg-header"><span class="msg-author" style="color:' + color + '">' + name + '</span><span class="msg-timestamp">Today at ' + formatTime(now) + '</span></div>';
+      if(msgText){
+        bodyHtml += '<div class="msg-content">' + escapeHtml(msgText).replace(/\n/g,'<br>') + '</div>';
+      }
+      msgDiv.innerHTML = '<div class="msg-avatar" style="background:' + color + '">' + initial + '</div><div class="msg-body">' + bodyHtml + '</div>';
+      messagesEl.appendChild(msgDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }, 1500 + Math.random()*1500);
+  }
+
+  // Simulate a message every 20-40 seconds
+  function scheduleNext(){
+    const delay = 20000 + Math.random()*20000;
+    setTimeout(()=>{ simulateMessage(); scheduleNext(); }, delay);
+  }
+  scheduleNext();
+
+})();
+</script>
+</body>
+</html>
