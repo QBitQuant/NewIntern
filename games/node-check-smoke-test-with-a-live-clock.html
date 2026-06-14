@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node Check Smoke Test — Live Clock</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root {
+    --bg:#0b0f18;
+    --surface:#131a2b;
+    --border:#1e293b;
+    --text:#cbd5e1;
+    --muted:#64748b;
+    --green:#22c55e;
+    --red:#ef4444;
+    --yellow:#eab308;
+    --blue:#3b82f6;
+    --cyan:#06b6d4;
+  }
+
+  body {
+    font-family:'Courier New',Courier,monospace;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:2rem 1.5rem;
+  }
+
+  h1 {
+    font-size:1.35rem;
+    color:var(--cyan);
+    margin-bottom:.4rem;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+  }
+
+  .subtitle {
+    color:var(--muted);
+    font-size:.82rem;
+    margin-bottom:2.2rem;
+  }
+
+  /* ── Live Clock ── */
+  .clock-wrap {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:1.6rem 3rem;
+    margin-bottom:2.2rem;
+    text-align:center;
+    box-shadow:0 6px 30px rgba(0,0,0,.5);
+  }
+
+  .clock-label {
+    font-size:.72rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.18em;
+    margin-bottom:.45rem;
+  }
+
+  #live-clock {
+    font-size:3.2rem;
+    font-weight:bold;
+    color:var(--green);
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 0 16px rgba(34,197,94,.25);
+    letter-spacing:.08em;
+  }
+
+  #live-date {
+    font-size:.88rem;
+    color:var(--muted);
+    margin-top:.35rem;
+  }
+
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+  .blink{animation:blink 1.4s step-end infinite;color:var(--green)}
+
+  /* ── Button ── */
+  .btn-wrap{text-align:center;margin-bottom:1.8rem}
+
+  .btn {
+    background:var(--blue);
+    color:#fff;
+    border:none;
+    padding:.65rem 1.6rem;
+    border-radius:9px;
+    font-family:inherit;
+    font-size:.95rem;
+    cursor:pointer;
+    transition:background .2s,transform .1s;
+  }
+  .btn:hover{background:#2563eb}
+  .btn:active{transform:scale(.97)}
+
+  /* ── Summary Bar ── */
+  .summary {
+    display:flex;gap:2rem;justify-content:center;
+    margin-bottom:1.8rem;padding:1.1rem 2rem;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;width:100%;max-width:560px;
+  }
+
+  .summary-item{text-align:center}
+  .summary-count{font-size:2.2rem;font-weight:bold}
+  .summary-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.15rem}
+
+  /* ── Test Results Panel ── */
+  .panel {
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;padding:1.4rem;width:100%;max-width:560px;
+    margin-bottom:1.8rem;
+  }
+
+  .panel-title{
+    font-size:.95rem;color:var(--cyan);text-transform:uppercase;
+    letter-spacing:.1em;margin-bottom:1rem;
+  }
+
+  .test-row {
+    display:flex;align-items:center;gap:.7rem;
+    padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.83rem;
+  }
+  .test-row:last-child{border-bottom:none}
+
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .pass .dot{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.5)}
+  .fail .dot{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,.5)}
+
+  .t-name{flex:1}
+  .t-detail{color:var(--muted);font-size:.76rem}
+
+  /* ── Info Cards Grid ── */
+  .info-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:1.2rem;width:100%;max-width:560px;
+  }
+
+  .card {
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:1.2rem;
+  }
+
+  .card h3{
+    font-size:.84rem;color:var(--cyan);text-transform:uppercase;
+    letter-spacing:.08em;margin-bottom:.75rem;
+  }
+
+  .info-row {
+    display:flex;justify-content:space-between;
+    padding:.28rem 0;font-size:.81rem;border-bottom:1px solid var(--border);
+  }
+  .info-row:last-child{border-bottom:none}
+  .i-key{color:var(--muted)}
+  .i-val{color:var(--text);text-align:right;word-break:break-all}
+
+  @media(max-width:480px){
+    #live-clock{font-size:2.1rem}
+    .clock-wrap{padding:1.2rem 1.5rem}
+    .summary{gap:1.2rem;padding:.9rem 1rem}
+    .summary-count{font-size:1.6rem}
+  }
+</style>
+</head>
+<body>
+
+<h1>⚡ Node Check Smoke Test</h1>
+<p class="subtitle">Real-time environment diagnostics &amp; live clock</p>
+
+<!-- ── Live Clock ── -->
+<div class="clock-wrap">
+  <div class="clock-label">System Time (UTC)</div>
+  <div id="live-clock"></div>
+  <div id="live-date"></div>
+</div>
+
+<!-- ── Run Button ── -->
+<div class="btn-wrap">
+  <button class="btn" id="run-btn">▶&ensp;Run Smoke Test</button>
+</div>
+
+<!-- ── Summary (hidden initially) ── -->
+<div class="summary" id="summary-bar" style="display:none">
+  <div class="summary-item">
+    <div class="summary-count" id="s-pass" style="color:var(--green)">0</div>
+    <div class="summary-label">Passed</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-count" id="s-fail" style="color:var(--red)">0</div>
+    <div class="summary-label">Failed</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-count" id="s-total" style="color:var(--yellow)">0</div>
+    <div class="summary-label">Total</div>
+  </div>
+</div>
+
+<!-- ── Test Results (hidden initially) ── -->
+<div id="test-results"></div>
+
+<!-- ── Node Info Cards ── -->
+<div style="width:100%;max-width:560px">
+  <div class="panel" style="margin-bottom:.8rem">
+    <div class="panel-title">📋 Node / Browser Information</div>
+  </div>
+  <div class="info-grid" id="node-info-grid"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ════════════════════════════════════
+   LIVE CLOCK
+   ════════════════════════════════════ */
+const clockEl = document.getElementById('live-clock');
+const dateEl  = document.getElementById('live-date');
+
+function pad(n){ return n<10?'0'+n:''+n; }
+
+function tickClock(){
+  const d = new Date();
+  const h=pad(d.getUTCHours()), m=pad(d.getUTCMinutes()), s=pad(d.getUTCSeconds());
+  clockEl.innerHTML = h+'<span class="blink">:</span>'+m+'<span class="blink">:</span>'+s;
+
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const mons=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  dateEl.textContent = days[d.getUTCDay()]+'  '+mons[d.getUTCMonth()]+ ' '+d.getUTCDate()+', '+d.getUTCFullYear()+' UTC';
+}
+
+tickClock();
+setInterval(tickClock,1000);
+
+
+/* ════════════════════════════════════
+   SMOKE TESTS
+   ════════════════════════════════════ */
+const results = [];  // {name,pass,detail}
+
+function add(name, pass, detail){
+  results.push({name:String(name),pass:!!pass,detail:String(detail||'')});
+}
+
+/* --- Test Suite (30 checks) --- */
+function runTests(){
+  results.length=0;
+
+  // 1 — Date/Time API
+  try{ const d=new Date(); add('Date / Time API', !isNaN(d.getTime()), 'Valid'); }
+  catch(e){ add('Date / Time API',false,e.message); }
+
+  // 2 — localStorage
+  try{ const k='__smoke__'; localStorage.setItem(k,'1'); const ok=localStorage.getItem(k)==='1'; localStorage.removeItem(k); add('localStorage',ok,ok?'Read/write OK':'Write failed'); }
+  catch(e){ add('localStorage',false,e.message); }
+
+  // 3 — sessionStorage
+  try{ const k='__smoke__'; sessionStorage.setItem(k,'1'); const ok=sessionStorage.getItem(k)==='1'; sessionStorage.removeItem(k); add('sessionStorage',ok,ok?'Read/write OK':'Write failed'); }
+  catch(e){ add('sessionStorage',false,e.message); }
+
+  // 4 — navigator object
+  try{ add('navigator object', typeof navigator==='undefined'?false:true, 'Present'); }
+  catch(e){ add('navigator object',false,e.message); }
+
+  // 5 — DOM / document
+  try{ add('DOM / document', !!document.documentElement, 'Available'); }
+  catch(e){ add('DOM / document',false,e.message); }
+
+  // 6 — fetch API
+  try{ add('fetch API', typeof fetch==='function','Supported'); }
+  catch(e){ add('fetch API',false,e.message); }
+
+  // 7 — Promise / async
+  try{ add('Promise / async', typeof Promise==='function','Supported'); }
+  catch(e){ add('Promise / async',false,e.message); }
+
+  // 8 — Intl (DateTimeFormat)
+  try{ add('Intl API', typeof Intl!=='undefined'&&typeof Intl.DateTimeFormat==='function','Supported'); }
+  catch(e){ add('Intl API',false,e.message); }
+
+  // 9 — Web Workers
+  try{ add('Web Workers', typeof Worker==='function','Available'); }
+  catch(e){ add('Web Workers',false,e.message); }
+
+  // 10 — Canvas API
+  try{ const c=document.createElement('canvas'); add('Canvas API',!!(c.getContext&&c.getContext('2d')), '2D context OK'); }
+  catch(e){ add('Canvas API',false,e.message); }
+
+  // 11 — WebSocket
+  try{ add('WebSocket', typeof WebSocket==='function','Available'); }
+  catch(e){ add('WebSocket',false,e.message); }
+
+  // 12 — Geolocation
+  try{ add('Geolocation API', !!(navigator.geolocation),'Available'); }
+  catch(e){ add('Geolocation API',false,e.message); }
+
+  // 13 — Web Crypto (subtle)
+  try{ add('Web Crypto API', !!crypto.subtle,'Subtle available'); }
+  catch(e){ add('Web Crypto API',false,e.message); }
+
+  // 14 — Service Worker registration
+  try{ add('Service Workers', !!(navigator.serviceWorker),'Available'); }
+  catch(e){ add('Service Workers',false,e.message); }
+
+  // 15 — Clipboard API
+  try{ add('Clipboard API', !!navigator.clipboard,'Available'); }
+  catch(e){ add('Clipboard API',false,e.message); }
+
+  // 16 — Performance API
+  try{ add('Performance API', !!(performance&&performance.now),'Available'); }
+  catch(e){ add('Performance API',false,e.message); }
+
+  // 17 — ResizeObserver
+  try{ add('ResizeObserver', typeof ResizeObserver==='function','Available'); }
+  catch(e){ add('ResizeObserver',false,e.message); }
+
+  // 18 — IntersectionObserver
+  try{ add('IntersectionObserver', typeof IntersectionObserver==='function','Available'); }
+  catch(e){ add('IntersectionObserver',false,e.message); }
+
+  // 19 — requestAnimationFrame
+  try{ add('requestAnimationFrame', typeof requestAnimationFrame==='function','Available'); }
+  catch(e){ add('requestAnimationFrame',false,e.message); }
+
+  // 20 — URL / URLSearchParams
+  try{ add('URL API', typeof URL==='function','Available'); }
+  catch(e){ add('URL API',false,e.message); }
+
+  // 21 — TypedArray / ArrayBuffer
+  try{ add('TypedArrays / ArrayBuffer', typeof Uint8Array==='function'&&typeof ArrayBuffer==='function','Available'); }
+  catch(e){ add('TypedArrays / ArrayBuffer',false,e.message); }
+
+  // 22 — Proxy
+  try{ add('Proxy API', typeof Proxy==='function','Available'); }
+  catch(e){ add('Proxy API',false,e.message); }
+
+  // 23 — ES6+ Collections (Map, Set, WeakMap, WeakRef)
+  try{
+    const m=typeof Map==='function', s=typeof Set==='function', w=typeof WeakMap==='function', r=typeof WeakRef==='function';
+    add('ES6+ Collections', m&&s&&w&&r,'All available');
+  } catch(e){ add('ES6+ Collections',false,e.message); }
+
+  // 24 — BigInt
+  try{ add('BigInt support', typeof BigInt==='function','Available'); }
+  catch(e){ add('BigInt support',false,e.message); }
+
+  // 25 — Optional chaining / nullish coalescing (ES2020)
+  try{ const fn=new Function("return ({}??{})?.x"); add('ES2020 syntax', typeof fn==='function','Supported'); }
+  catch(e){ add('ES2020 syntax',false,e.message); }
+
+  // 26 — WebAssembly
+  try{ add('WebAssembly', typeof WebAssembly==='object','Available'); }
+  catch(e){ add('WebAssembly',false,e.message); }
+
+  // 27 — BroadcastChannel
+  try{ add('BroadcastChannel API', typeof BroadcastChannel==='function','Available'); }
+  catch(e){ add('BroadcastChannel API',false,e.message); }
+
+  // 28 — Pointer Lock API
+  try{ add('Pointer Lock API', !!document.exitPointerLock,'Available'); }
+  catch(e){ add('Pointer Lock API',false,e.message); }
+
+  // 29 — Fullscreen API
+  try{ add('Fullscreen API', !!(document.documentElement&&document.documentElement.requestFullscreen),'Available'); }
+  catch(e){ add('Fullscreen API',false,e.message); }
+
+  // 30 — Screen / DPR info
+  try{ add('Screen / DPR info', !!screen.width, (screen.width||0)+'×'+(screen.height||0)); }
+  catch(e){ add('Screen / DPR info',false,e.message); }
+
+  renderResults();
+}
+
+
+/* ════════════════════════════════════
+   RENDER RESULTS
+   ════════════════════════════════════ */
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderResults(){
+  let pass=0, fail=0;
+  for(const r of results) if(r.pass) pass++; else fail++;
+
+  const bar=document.getElementById('summary-bar');
+  bar.style.display='';
+  document.getElementById('s-pass').textContent=pass;
+  document.getElementById('s-fail').textContent=fail;
+  document.getElementById('s-total').textContent=results.length;
+
+  let html='<div class="panel"><div class="panel-title">🧪 Smoke Test Results</div>';
+  for(const r of results){
+    const cls=r.pass?'pass':'fail';
+    html+='<div class="test-row '+cls+'"><span class="dot"></span><span class="t-name">'+esc(r.name)+'</span><span class="t-detail">'+esc(r.detail)+'</span></div>';
+  }
+  html+='</div>';
+  document.getElementById('test-results').innerHTML=html;
+}
+
+
+/* ════════════════════════════════════
+   NODE / BROWSER INFO CARDS
+   ════════════════════════════════════ */
+function card(title, rows){
+  let h='<div class="card"><h3>'+esc(title)+'</h3>';
+  for(const[k,v] of rows) h+='<div class="info-row"><span class="i-key">'+esc(k)+'</span><span class="i-val">'+esc(String(v))+'</span></div>';
+  return h+'</div>';
+}
+
+function connType(){
+  const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(!c) return '—';
+  return (c.effectiveType||'—').toUpperCase();
+}
+
+function ptrType(){
+  if('ontouchstart' in window) return 'Touch';
+  if(navigator.maxTouchPoints>0) return 'Touch + Mouse ('+navigator.maxTouchPoints+')';
+  return 'Mouse';
+}
+
+function populateInfo(){
+  const grid=document.getElementById('node-info-grid');
+  const cores=navigator.hardwareConcurrency||'?';
+  const mem=navigator.deviceMemory?Math.round(navigator.deviceMemory)+' GB':'—';
+  const touch='ontouchstart' in window||navigator.maxTouchPoints>0?'Yes ('+navigator.maxTouchPoints+')':'No';
+
+  let t=0;
+  if(performance&&performance.timing){
+    const nt=performance.timing;
+    t=Math.round(nt.loadEventEnd-nt.navigationStart)+' ms';
+  }
+
+  grid.innerHTML =
+    card('Platform',[
+      ['User Agent', navigator.userAgent||'—'],
+      ['Platform', navigator.platform||'—'],
+      ['Language', (navigator.language||navigator.userLanguage||'—')],
+      ['Cookies Enabled', String(navigator.cookieEnabled??false)],
+      ['Online Status', navigator.onLine?'Online':'Offline']
+    ])+
+    card('Display',[
+      ['Screen Size',(screen.width||0)+'×'+(screen.height||0)],
+      ['Available Width',(screen.availWidth||0)],
+      ['Color Depth',(screen.colorDepth||0)+'-bit'],
+      ['Pixel Ratio',(window.devicePixelRatio||1).toFixed(2)]
+    ])+
+    card('Network',[
+      ['Connection Type', connType()],
+      ['Downlink Estimate',(navigator.connection&&navigator.connection.downlink)?navigator.connection.downlink+' Mbps':'—'],
+      ['RTT Estimate',(navigator.connection&&navigator.connection.rtt)?navigator.connection.rtt+' ms':'—'],
+      ['Save Data', (navigator.connection&&navigator.connection.saveData)?'Yes':'No']
+    ])+
+    card('Performance',[
+      ['Page Load Time', t||'—'],
+      ['DOM Ready',(performance&&performance.timing)?Math.round(performance.timing.domContentLoadedEventEnd-performance.timing.navigationStart)+' ms':'—'],
+      ['Performance API','Yes']
+    ])+
+    card('Hardware / Caps',[
+      ['CPU Cores', String(cores)],
+      ['Memory (GB)', mem],
+      ['Touch Support', touch],
+      ['Pointer Type', ptrType()]
+    ]);
+}
+
+
+/* ════════════════════════════════════
+   INIT
+   ════════════════════════════════════ */
+populateInfo();
+
+document.getElementById('run-btn').addEventListener('click', runTests);
+
+// Auto-run on load
+runTests();
+
+})();
+</script>
+</body>
+</html>
