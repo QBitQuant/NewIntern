@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smoke Test Page with a Clock</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  text-align: center;
+  padding: 2rem;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin-bottom: 1.5rem;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.clock-wrapper {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto 2rem;
+}
+
+.clock-face {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #1e293b;
+  border: 4px solid #334155;
+  position: relative;
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.1), inset 0 0 30px rgba(0,0,0,0.3);
+}
+
+/* Hour markers */
+.marker {
+  position: absolute;
+  width: 2px;
+  height: 16px;
+  background: #475569;
+  left: 50%;
+  top: 8px;
+  transform-origin: 50% 132px;
+}
+
+.marker.major {
+  width: 3px;
+  height: 22px;
+  background: #94a3b8;
+  transform-origin: 50% 126px;
+}
+
+/* Hour numbers */
+.hour-number {
+  position: absolute;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Clock hands */
+.hand {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform-origin: 50% 100%;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.hand-hour {
+  width: 5px;
+  height: 70px;
+  background: #e2e8f0;
+  margin-left: -2.5px;
+}
+
+.hand-minute {
+  width: 3px;
+  height: 95px;
+  background: #94a3b8;
+  margin-left: -1.5px;
+}
+
+.hand-second {
+  width: 1.5px;
+  height: 105px;
+  background: #f97316;
+  margin-left: -0.75px;
+  z-index: 3;
+}
+
+.center-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #f97316;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+}
+
+/* Digital readout */
+.digital-time {
+  font-size: 2.8rem;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  color: #f97316;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.5rem;
+}
+
+.digital-date {
+  font-size: 1rem;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+/* Status indicator */
+.status-bar {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #4ade80;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: #4ade80;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Smoke Test — Clock</h1>
+
+  <div class="clock-wrapper">
+    <div class="clock-face" id="clockFace">
+      <!-- Markers and numbers injected by JS -->
+      <div class="hand hand-hour" id="hourHand"></div>
+      <div class="hand hand-minute" id="minuteHand"></div>
+      <div class="hand hand-second" id="secondHand"></div>
+      <div class="center-dot"></div>
+    </div>
+  </div>
+
+  <div class="digital-time" id="digitalTime">00:00:00</div>
+  <div class="digital-date" id="digitalDate"></div>
+
+  <div class="status-bar">
+    <span class="status-dot"></span>
+    <span>All systems nominal — clock running</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  const clockFace = document.getElementById('clockFace');
+  const hourHand = document.getElementById('hourHand');
+  const minuteHand = document.getElementById('minuteHand');
+  const secondHand = document.getElementById('secondHand');
+  const digitalTime = document.getElementById('digitalTime');
+  const digitalDate = document.getElementById('digitalDate');
+
+  // Build hour markers and numbers
+  for (let i = 0; i < 60; i++) {
+    if (i % 5 === 0) {
+      const marker = document.createElement('div');
+      marker.className = 'marker major';
+      marker.style.transform = `translateX(-50%) rotate(${i * 6}deg)`;
+      clockFace.appendChild(marker);
+
+      // Hour number
+      const num = i / 5 || 12;
+      const angleRad = (i * 6 - 90) * (Math.PI / 180);
+      const radius = 108;
+      const x = 140 + Math.cos(angleRad) * radius - 15;
+      const y = 140 + Math.sin(angleRad) * radius - 15;
+
+      const numEl = document.createElement('div');
+      numEl.className = 'hour-number';
+      numEl.textContent = num;
+      numEl.style.left = x + 'px';
+      numEl.style.top = y + 'px';
+      clockFace.appendChild(numEl);
+    } else {
+      const marker = document.createElement('div');
+      marker.className = 'marker';
+      marker.style.transform = `translateX(-50%) rotate(${i * 6}deg)`;
+      clockFace.appendChild(marker);
+    }
+  }
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function updateClock() {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const s = now.getSeconds();
+    const ms = now.getMilliseconds();
+
+    // Analog hands (smooth second hand)
+    const secDeg = (s + ms / 1000) * 6;
+    const minDeg = (m + s / 60) * 6;
+    const hrDeg = ((h % 12) + m / 60) * 30;
+
+    secondHand.style.transform = `translateX(-50%) rotate(${secDeg}deg)`;
+    minuteHand.style.transform = `translateX(-50%) rotate(${minDeg}deg)`;
+    hourHand.style.transform = `translateX(-50%) rotate(${hrDeg}deg)`;
+
+    // Digital time
+    digitalTime.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+
+    // Date
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    digitalDate.textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+
+    requestAnimationFrame(updateClock);
+  }
+
+  updateClock();
+})();
+</script>
+</body>
+</html>
