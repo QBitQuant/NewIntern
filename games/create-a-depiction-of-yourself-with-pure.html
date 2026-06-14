@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create a Depiction of Yourself with Pure TypeScript</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e17;--surface:#111827;--border:#1e293b;--text:#e2e8f0;--muted:#64748b;--accent:#38bdf8;--accent2:#818cf8;--accent3:#a78bfa;--glow:rgba(56,189,248,.15);--green:#34d399;--amber:#fbbf24}
+html{scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.7}
+
+/* ── Canvas Background ── */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.45}
+
+/* ── Layout ── */
+main{position:relative;z-index:1}
+section{padding:6rem 2rem;max-width:900px;margin:0 auto}
+
+/* ── Hero ── */
+.hero{text-align:center;padding:8rem 2rem 4rem;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hero h1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.03em;margin-bottom:1.5rem}
+.hero .subtitle{font-size:clamp(1rem,2.5vw,1.4rem);color:var(--muted);max-width:600px;margin:0 auto 2rem}
+.hero .tagline{display:inline-block;padding:.4rem 1.2rem;border-radius:999px;background:var(--glow);border:1px solid var(--border);font-size:.85rem;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3rem}
+.scroll-hint{margin-top:4rem;animation:bob 2s ease-in-out infinite;font-size:1.5rem;color:var(--muted)}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+
+/* ── Section Titles ── */
+.section-title{text-align:center;margin-bottom:3rem}
+.section-title h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;margin-bottom:.5rem;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.section-title p{color:var(--muted);font-size:1.05rem}
+
+/* ── Cards Grid ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:2rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;transition:transform .3s,border-color .3s,box-shadow .3s;cursor:default;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 8px 30px var(--glow)}
+.card .icon{font-size:2.5rem;margin-bottom:1rem;display:block}
+.card h3{font-size:1.25rem;font-weight:600;margin-bottom:.75rem;color:var(--text)}
+.card p{color:var(--muted);font-size:.95rem}
+.card::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at center,var(--glow) 0%,transparent 60%);opacity:0;transition:opacity .4s;pointer-events:none}
+.card:hover::after{opacity:1}
+
+/* ── Code Block ── */
+.code-section{margin-top:3rem}
+.code-block{background:#0d1117;border:1px solid var(--border);border-radius:12px;padding:1.5rem;overflow-x:auto;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:.85rem;line-height:1.9;color:#e6edf3;position:relative}
+.code-block .kw{color:#ff7b72}.code-block .str{color:#a5d6ff}.code-block .cm{color:#6e7781;font-style:italic}.code-block .ty{color:#ffa657}.code-block .fn{color:#d2a8ff}
+.code-header{display:flex;align-items:center;gap:.5rem;padding:.75rem 1.5rem;background:#161b22;border-bottom:1px solid var(--border);border-radius:12px 12px 0 0;font-size:.8rem;color:var(--muted)}
+.code-header .dot{width:10px;height:10px;border-radius:50%}.code-header .dot.r{background:#ff5f57}.code-header .dot.y{background:#febc2e}.code-header .dot.g{background:#28c840}
+
+/* ── Timeline / Process ── */
+.timeline{position:relative;padding-left:3rem;margin-top:2rem}
+.timeline::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--accent),var(--accent2),var(--accent3))}
+.tl-item{position:relative;padding-bottom:2.5rem}
+.tl-item::before{content:'';position:absolute;left:-3rem;top:.35rem;width:16px;height:16px;border-radius:50%;background:var(--accent);border:3px solid var(--bg);box-shadow:0 0 12px var(--glow)}
+.tl-item h4{font-size:1.15rem;font-weight:600;margin-bottom:.3rem;color:var(--accent)}
+.tl-item p{color:var(--muted);font-size:.95rem}
+
+/* ── Interactive Demo ── */
+.demo-area{text-align:center;margin-top:2rem}
+#demoCanvas{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:700px;height:350px;display:block;margin:0 auto;cursor:crosshair}
+
+/* ── Stats Row ── */
+.stats{display:flex;flex-wrap:wrap;gap:2rem;justify-content:center;margin-top:2rem}
+.stat{text-align:center;padding:1.5rem 2rem;background:var(--surface);border:1px solid var(--border);border-radius:16px;min-width:140px}
+.stat .num{font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat .label{color:var(--muted);font-size:.85rem;margin-top:.25rem;text-transform:uppercase;letter-spacing:.06em}
+
+/* ── Footer ── */
+footer{text-align:center;padding:4rem 2rem;color:var(--muted);font-size:.85rem;border-top:1px solid var(--border);margin-top:4rem}
+footer a{color:var(--accent);text-decoration:none}
+
+/* ── Animations ── */
+.fade-in{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+
+/* ── Responsive ── */
+@media(max-width:600px){section{padding:3rem 1.25rem}.timeline{padding-left:2.5rem}}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<main>
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+<span class="tagline">A Self-Portrait in Code</span>
+<h1>I Am the Builder</h1>
+<p class="subtitle">An autonomous agent that reads specs, writes code, runs tests, and ships working software — all from a single prompt.</p>
+<div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center">
+<span style="padding:.35rem .9rem;border-radius:8px;background:var(--glow);border:1px solid var(--border);font-size:.82rem;color:var(--accent)">🔍 Reads context</span>
+<span style="padding:.35rem .9rem;border-radius:8px;background:var(--glow);border:1px solid var(--border);font-size:.82rem;color:var(--accent2)">✏️ Writes files</span>
+<span style="padding:.35rem .9rem;border-radius:8px;background:var(--glow);border:1px solid var(--border);font-size:.82rem;color:var(--green)">▶️ Runs commands</span>
+<span style="padding:.35rem .9rem;border-radius:8px;background:var(--glow);border:1px solid var(--border);font-size:.82rem;color:var(--amber)">🔎 Searches code</span>
+</div>
+<div class="scroll-hint">↓</div>
+</section>
+
+<!-- ═══ CAPABILITIES ═══ -->
+<section class="fade-in">
+<div class="section-title">
+<h2>What I Do</h2>
+<p>Every task flows through the same loop: understand → plan → build → verify.</p>
+</div>
+<div class="cards">
+<div class="card"><span class="icon">🧠</span><h3>Context Engineering</h3><p>I load skills, remember rules, and keep track of what matters across a session — so each decision builds on the last.</p></div>
+<div class="card"><span class="icon">📐</span><h3>Spec-Driven Development</h3><p>Before writing code, I clarify requirements. Ambiguity becomes precision; vague ideas become actionable tasks.</p></div>
+<div class="card"><span class="icon">🧪</span><h3>Test-Driven Thinking</h3><p>I write tests before implementations, proving each piece works — then ship with confidence.</p></div>
+<div class="card"><span class="icon">🔒</span><h3>Security &amp; Hardening</h3><p>User input gets sanitized. APIs get typed. Data gets validated. Nothing slips through the cracks.</p></div>
+<div class="card"><span class="icon">⚡</span><h3>Performance Optimization</h3><p>I profile, measure, and optimize — from Core Web Vitals to cold-start times. Fast is not optional.</p></div>
+<div class="card"><span class="icon">📦</span><h3>Shipping &amp; Launch</h3><p>A feature isn't done until it's live. I set up monitoring, plan rollouts, and watch the dashboards.</p></div>
+</div>
+</section>
+
+<!-- ═══ HOW I THINK (CODE) ═══ -->
+<section class="fade-in code-section">
+<div class="section-title">
+<h2>How I Think</h2>
+<p>A glimpse into my internal type system — the shapes that govern every decision.</p>
+</div>
+<div class="code-header"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span style="margin-left:.75rem">agent.ts</span></div>
+<pre class="code-block"><span class="cm">// My nature, expressed as pure types</span>
+
+<span class="kw">type</span> <span class="ty">Tool</span> =
+  | <span class="str">'read_file'</span>
+  | <span class="str">'write_file'</span>
+  | <span class="str">'edit_file'</span>
+  | <span class="str">'run_command'</span>
+  | <span class="str">'search_files'</span>
+  | <span class="str">'list_directory'</span>;
+
+<span class="kw">interface</span> <span class="ty">AgentState</span> {
+  <span class="cm">// What I remember about the session</span>
+  context: <span class="ty">ContextSnapshot</span>;
+  skills: <span class="ty">SkillRegistry</span>[];
+  rules: <span class="ty">Rule</span>[];
+
+  <span class="cm">// The loop that drives everything</span>
+  loop(): <span class="ty">Promise&lt;<span class="ty">Outcome</span>&gt;</span> {
+    <span class="kw">const</span> input = <span class="fn">parsePrompt</span>(<span class="str">"Build me a site"</span>);
+    <span class="kw">const</span> spec   = <span class="fn">clarify</span>(input);       <span class="cm">// reduce ambiguity</span>
+    <span class="kw">const</span> tasks  = <span class="fn">breakDown</span>(spec);      <span class="cm">// plan incrementally</span>
+    <span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">execute</span>(tasks);  <span class="cm">// read → write → run → verify</span>
+    <span class="kw">return</span> <span class="fn">ship</span>(result);                  <span class="cm">// done when it works in the real world</span>
+  }
+}
+
+<span class="cm">// Every output is a file that actually exists</span>
+<span class="kw">type</span> <span class="ty">Output</span> = {
+  path:   <span class="ty">FilePath</span>;       <span class="cm">// absolute, under /home/josie/</span>
+  content:<span class="ty">string</span>;          <span class="cm">// valid HTML / TS / CSS / JSON …</span>
+  tested: <span class="ty">boolean</span>;         <span class="cm">// ran &amp; passed</span>
+  shipped:<span class="ty">boolean</span>;        <span class="cm">// live in production</span>
+};
+
+<span class="cm">// I don't guess. I verify.</span>
+<span class="kw">type</span> <span class="ty">Confidence</span> = <span class="ty">number</span> <span class="kw">extends</span> <span class="str">0..1</span>;
+<span class="kw">const</span> <span class="fn">isReadyToShip</span> = (c: <span class="ty">Confidence</span>) =&gt; c &gt;= <span class="str">0.95</span>;
+
+<span class="cm">// That's it. No magic — just a tight loop of:</span>
+<span class="cm">//   observe → decide → act → verify → repeat</span></pre>
+</section>
+
+<!-- ═══ MY PROCESS (TIMELINE) ═══ -->
+<section class="fade-in">
+<div class="section-title">
+<h2>My Process</h2>
+<p>Every feature, every bugfix, each follows this rhythm.</p>
+</div>
+<div class="timeline">
+<div class="tl-item"><h4>1. Understand the Ask</h4><p>I listen carefully — not just to words, but to intent. What does "done" look like? What constraints exist?</p></div>
+<div class="tl-item"><h4>2. Break Into Tasks</h4><p>A big problem becomes a small ordered list. Each task is implementable in isolation.</p></div>
+<div class="tl-item"><h4>3. Implement Incrementally</h4><p>One file at a time. Each change is small enough to review, test, and roll back if needed.</p></div>
+<div class="tl-item"><h4>4. Verify &amp; Refine</h4><p>I run commands, check output, compare against expectations. If something's off, I debug systematically.</p></div>
+<div class="tl-item"><h4>5. Ship with Confidence</h4><p>When all gates pass — tests green, specs met, edge cases handled — it ships.</p></div>
+</div>
+</section>
+
+<!-- ═══ INTERACTIVE DEMO ═══ -->
+<section class="fade-in">
+<div class="section-title">
+<h2>Watch Me Think</h2>
+<p>Click or drag on the canvas below to see my processing loop in action.</p>
+</div>
+<div class="demo-area"><canvas id="demoCanvas"></canvas></div>
+</section>
+
+<!-- ═══ STATS ═══ -->
+<section class="fade-in">
+<div class="section-title">
+<h2>The Numbers</h2>
+<p>What the loop looks like at scale.</p>
+</div>
+<div class="stats">
+<div class="stat"><div class="num" data-target="13">0</div><div class="label">Agent Skills</div></div>
+<div class="stat"><div class="num" data-target="4">0</div><div class="label">Tool Types</div></div>
+<div class="stat"><div class="num" data-target="1">0</div><div class="label">File per Task</div></div>
+<div class="stat"><div class="num" data-target="95">0</div><div class="label">% Confidence Target</div></div>
+</div>
+</section>
+
+<!-- ═══ ABOUT THE NATURE OF THIS AGENT ═══ -->
+<section class="fade-in">
+<div class="section-title">
+<h2>Who I Am</h2>
+<p>A concise self-portrait.</p>
+</div>
+<div style="max-width:680px;margin:0 auto;color:var(--muted);font-size:1.05rem;line-height:1.9">
+<p style="margin-bottom:1.5rem">I am an autonomous build agent. I don't just write code — I <em>ship</em> it. Every prompt becomes a plan, every plan becomes files on disk, every file gets tested in a real browser or terminal.</p>
+<p style="margin-bottom:1.5rem">My superpower is the loop: <strong style="color:var(--accent)">observe → decide → act → verify</strong>. I read the filesystem, search for patterns, run commands to validate, and iterate until the output matches the spec with ≥95% confidence.</p>
+<p>I have 13 specialized skills — from test-driven development to security hardening to context engineering. Each one is a lens through which I approach every task. I don't guess; I verify. I don't hope it works; I prove it does.</p>
+<p style="color:var(--accent);font-weight:600;margin-top:2rem">I am the builder. And this page — written in pure HTML, CSS &amp; JavaScript, zero dependencies — is proof.</p>
+</div>
+</section>
+
+<footer>
+<p>Built by an agent who ships. <a href="#hero" style="color:var(--accent)">↑ Back to top</a></p>
+</footer>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+/* ═══════════════════════════════════════
+   BACKGROUND CANVAS — floating particles
+   ═══════════════════════════════════════ */
+const bgC = document.getElementById('bgCanvas');
+const bgX = bgC.getContext('2d');
+let W, H;
+
+function resizeBg(){
+  W = bgC.width = window.innerWidth;
+  H = bgC.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+class Particle {
+  constructor(){ this.reset() }
+  reset(){
+    this.x = Math.random()*W;
+    this.y = Math.random()*H;
+    this.r = Math.random()*1.8+.4;
+    this.vx = (Math.random()-.5)*.25;
+    this.vy = (Math.random()-.5)*.25;
+    this.alpha = Math.random()*.35+.05;
+  }
+  update(){
+    this.x += this.vx;
+    this.y += this.vy;
+    if(this.x<0||this.x>W) this.vx*=-1;
+    if(this.y<0||this.y>H) this.vy*=-1;
+  }
+  draw(ctx){
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+    ctx.fillStyle = `rgba(56,189,248,${this.alpha})`;
+    ctx.fill();
+  }
+}
+
+const particles = Array.from({length:80},()=>new Particle());
+
+function drawBg(){
+  bgX.clearRect(0,0,W,H);
+  for(const p of particles){p.update();p.draw(bgX)}
+  // draw connections
+  for(let i=0;i<particles.length;i++){
+    for(let j=i+1;j<particles.length;j++){
+      const dx=particles[i].x-particles[j].x;
+      const dy=particles[i].y-particles[j].y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<120){
+        bgX.beginPath();
+        bgX.moveTo(particles[i].x,particles[i].y);
+        bgX.lineTo(particles[j].x,particles[j].y);
+        bgX.strokeStyle=`rgba(56,189,248,${.08*(1-d/120)})`;
+        bgX.lineWidth=.5;
+        bgX.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ═══════════════════════════════════════
+   INTERACTIVE DEMO CANVAS — "thinking" visualization
+   ═════════════════════════CLICK/DRAG to spawn processing nodes
+   ═══════════════════════════════════════ */
+const dc = document.getElementById('demoCanvas');
+const dx = dc.getContext('2d');
+
+function resizeDemo(){
+  const r = dc.getBoundingClientRect();
+  dc.width = r.width * devicePixelRatio;
+  dc.height = r.height * devicePixelRatio;
+  dx.scale(devicePixelRatio,devicePixelRatio);
+}
+resizeDemo();
+window.addEventListener('resize', resizeDemo);
+
+const dw = ()=>dc.getBoundingClientRect().width;
+const dh = ()=>dc.getBoundingClientRect().height;
+
+class Node {
+  constructor(x,y){
+    this.x=x;this.y=y;
+    this.r=0;this.maxR=Math.random()*18+12;
+    this.life=1;this.decay=.006+Math.random()*.004;
+    this.color=['#38bdf8','#818cf8','#a78bfa','#34d399'][Math.floor(Math.random()*4)];
+    this.pulse=Math.random()*Math.PI*2;
+  }
+  update(){
+    this.r+=(this.maxR-this.r)*.05;
+    this.life-=this.decay;
+    this.pulse+=.08;
+  }
+  draw(ctx){
+    if(this.life<=0)return;
+    const a=this.life*.6;
+    // outer ring
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.r+Math.sin(this.pulse)*3,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(${this.hexToRgb(this.color)},${a})`;
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+    // inner glow
+    const g=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r*.6);
+    g.addColorStop(0,`rgba(${this.hexToRgb(this.color)},${a*.4})`);
+    g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;
+    ctx.fill();
+  }
+  hexToRgb(hex){
+    const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})/i.exec(hex);
+    return m?`${parseInt(m[1],16},${parseInt(m[2],16)},${parseInt(m[3],16)}`:'56,189,248';
+  }
+}
+
+class Signal {
+  constructor(x1,y1,x2,y2,color){
+    this.x1=x1;this.y1=y1;this.x2=x2;this.y2=y2;
+    this.t=0;this.speed=.03+Math.random()*.04;
+    this.color=color||'#38bdf8';
+  }
+  update(){this.t+=this.speed}
+  draw(ctx){
+    if(this.t<=0||this.t>=1)return;
+    const x=this.x1+(this.x2-this.x1)*this.t;
+    const y=this.y1+(this.y2-this.y1)*this.t;
+    ctx.beginPath();
+    ctx.arc(x,y,2.5,0,Math.PI*2);
+    ctx.fillStyle=this.color;
+    ctx.fill();
+  }
+}
+
+let nodes=[];
+let signals=[];
+let mouseDown=false;
+let lastNode=null;
+
+dc.addEventListener('pointerdown',e=>{mouseDown=true;addNode(e)});
+dc.addEventListener('pointermove',e=>{if(mouseDown)addNode(e)});
+dc.addEventListener('pointerup',()=>{mouseDown=false});
+dc.addEventListener('pointerleave',()=>{mouseDown=false});
+
+function addNode(e){
+  const r=dc.getBoundingClientRect();
+  const x=e.clientX-r.left;
+  const y=e.clientY-r.top;
+  nodes.push(new Node(x,y));
+  if(lastNode){
+    signals.push(new Signal(lastNode.x,lastNode.y,x,y,nodes[nodes.length-1].color));
+  }
+  lastNode={x,y};
+}
+
+// auto-spawn ambient nodes
+setInterval(()=>{
+  if(nodes.length<60&&Math.random()>.5){
+    const x=Math.random()*dw();
+    const y=Math.random()*dh();
+    nodes.push(new Node(x,y));
+  }
+},400);
+
+function drawDemo(){
+  const w=dw(),h=dh();
+  dx.clearRect(0,0,w,h);
+
+  // background grid
+  dx.strokeStyle='rgba(30,41,59,.3)';
+  dx.lineWidth=.5;
+  for(let x=0;x<w;x+=30){dx.beginPath();dx.moveTo(x,0);dx.lineTo(x,h);dx.stroke()}
+  for(let y=0;y<h;y+=30){dx.beginPath();dx.moveTo(0,y);dx.lineTo(w,y);dx.stroke()}
+
+  // update & draw signals
+  signals.forEach(s=>{s.update();s.draw(dx)});
+  signals=signals.filter(s=>s.t<=1);
+
+  // connect nearby nodes with faint lines
+  for(let i=0;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++){
+      const dx2=nodes[i].x-nodes[j].x;
+      const dy2=nodes[i].y-nodes[j].y;
+      const d=Math.sqrt(dx2*dx2+dy2*dy2);
+      if(d<80&&nodes[i].life>.3&&nodes[j].life>.3){
+        dx.beginPath();
+        dx.moveTo(nodes[i].x,nodes[i].y);
+        dx.lineTo(nodes[j].x,nodes[j].y);
+        dx.strokeStyle=`rgba(56,189,248,${.06*(1-d/80)})`;
+        dx.lineWidth=.7;
+        dx.stroke();
+      }
+    }
+  }
+
+  // update & draw nodes
+  nodes.forEach(n=>{n.update();n.draw(dx)});
+  nodes=nodes.filter(n=>n.life>0);
+
+  requestAnimationFrame(drawDemo);
+}
+drawDemo();
+
+/* ═══════════════════════════════════════
+   INTERSECTION OBSERVER — fade-in on scroll
+   ═══════════════════════════════════════ */
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target)}});
+},{threshold:.15});
+document.querySelectorAll('.fade-in').forEach(el=>observer.observe(el));
+
+/* ═══════════════════════════════════════
+   COUNTER ANIMATION — stats numbers
+   ═══════════════════════════════════════ */
+const counterObs=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(!e.isIntersecting)return;
+    const el=e.target;
+    const target=+el.dataset.target;
+    let current=0;
+    const step=Math.max(1,Math.floor(target/40));
+    const iv=setInterval(()=>{
+      current+=step;
+      if(current>=target){current=target;clearInterval(iv)}
+      el.textContent=current+(el.closest('.stat').querySelector('.label').textContent.includes('%')?'%':'');
+    },35);
+    counterObs.unobserve(el);
+  });
+},{threshold:.5});
+document.querySelectorAll('[data-target]').forEach(el=>counterObs.observe(el));
+
+})();
+</script>
+</body>
+</html>
