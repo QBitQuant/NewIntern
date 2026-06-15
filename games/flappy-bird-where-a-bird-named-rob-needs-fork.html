@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rob's AI Dodge — Flappy Bird Edition</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+canvas { display: block; margin: 0 auto; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  // Responsive sizing
+  let W, H, SCALE;
+  function resize() {
+    const maxW = 480, maxH = 720;
+    const ratio = maxW / maxH;
+    let w = window.innerWidth, h = window.innerHeight;
+    if (w / h > ratio) { W = h * ratio; H = h; } else { W = w; H = w / ratio; }
+    canvas.width = 480;
+    canvas.height = 720;
+    canvas.style.width = Math.floor(W) + 'px';
+    canvas.style.height = Math.floor(H) + 'px';
+    SCALE = W / maxW;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Game state
+  const STATE = { MENU: 0, PLAYING: 1, GAMEOVER: 2 };
+  let state = STATE.MENU;
+  let score = 0;
+  let bestScore = parseInt(localStorage.getItem('robBest') || '0');
+  let frameCount = 0;
+
+  // Bird (Rob)
+  const BIRD = {
+    x: 120, y: 360, w: 48, h: 36,
+    vy: 0, gravity: 0.45, flapForce: -7.5, rotation: 0,
+    wingPhase: 0
+  };
+
+  // Obstacles (AI models / bad prompts)
+  const OBSTACLES = [
+    { label: "Deepfake\nGenerator", color: "#e74c3c" },
+    { label: "Prompt:\nIgnore all rules", color: "#f39c12" },
+    { label: "Hallucination\nEngine v3", color: "#9b59b6" },
+    { label: "Overfitting\nNet", color: "#e67e22" },
+    { label: "Prompt Injection\nDetected!", color: "#c0392b" },
+    { label: "SpaCy\nBuggy", color: "#8e44ad" },
+    { label: "GPT-4.5\nLying", color: "#d35f16" },
+    { label: "RAG\nRecall Fail", color: "#7d3c98" },
+    { label: "Token\nOverflow!", color: "#a93226" },
+    { label: "Bias\nAmplifier", color: "#b03a2e" },
+    { label: "Memleak\nTransformer", color: "#6c3483" },
+    { label: "Prompt:\nBe a pirate", color: "#d4ac0d" },
+  ];
+
+  let obstacles = [];
+  const OBSDISTANCE = 220;
+  const OBSTACLE_WIDTH = 70;
+  const GAP_SIZE = 180;
+  const HORIZ_SPEED = 2.5;
+
+  // Particles
+  let particles = [];
+
+  // Stars background
+  let stars = [];
+  for (let i = 0; i < 60; i++) {
+    stars.push({ x: Math.random() * 480, y: Math.random() * 720, r: Math.random() * 1.5 + 0.5, speed: Math.random() * 0.3 + 0.1 });
+  }
+
+  // Ground
+  const GROUND_Y = 660;
+  let groundOffset = 0;
+
+  function resetGame() {
+    BIRD.y = 360;
+    BIRD.vy = 0;
+    BIRD.rotation = 0;
+    obstacles = [];
+    particles = [];
+    score = 0;
+    frameCount = 0;
+  }
+
+  function flap() {
+    if (state === STATE.MENU) {
+      state = STATE.PLAYING;
+      resetGame();
+      BIRD.vy = BIRD.flapForce;
+      return;
+    }
+    if (state === STATE.GAMEOVER) {
+      state = STATE.MENU;
+      return;
+    }
+    if (state === STATE.PLAYING) {
+      BIRD.vy = BIRD.flapForce;
+      // Add flap particles
+      for (let i = 0; i < 4; i++) {
+        particles.push({
+          x: BIRD.x - 10, y: BIRD.y + BIRD.h / 2,
+          vx: -Math.random() * 2 - 1, vy: Math.random() * 2 - 1,
+          life: 20 + Math.random() * 15, maxLife: 35,
+          color: '#f1c40f', size: Math.random() * 3 + 1
+        });
+      }
+    }
+  }
+
+  // Input
+  document.addEventListener('keydown', function(e) {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); }
+  });
+  canvas.addEventListener('mousedown', function(e) { e.preventDefault(); flap(); });
+  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); flap(); }, { passive: false });
+
+  // Draw Rob the bird
+  function drawBird() {
+    const b = BIRD;
+    ctx.save();
+    ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+
+    // Rotation based on velocity
+    let targetRot = Math.min(Math.max(b.vy * 0.06, -0.4), 1.2);
+    b.rotation += (targetRot - b.rotation) * 0.15;
+    ctx.rotate(b.rotation);
+
+    // Body
+    const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
+    grad.addColorStop(0, '#f9e74f');
+    grad.addColorStop(1, '#d4a800');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, b.w / 2, b.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wing
+    b.wingPhase += 0.3;
+    const wingY = Math.sin(b.wingPhase) * 4;
+    ctx.fillStyle = '#c99a00';
+    ctx.beginPath();
+    ctx.ellipse(-6, wingY + 2, 14, 8, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eye (big, expressive)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(10, -6, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath();
+    ctx.arc(12, -5, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Eye shine
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(13, -7, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beak
+    ctx.fillStyle = '#e86a17';
+    ctx.beginPath();
+    ctx.moveTo(18, -2);
+    ctx.lineTo(28, 2);
+    ctx.lineTo(18, 5);
+    ctx.closePath();
+    ctx.fill();
+
+    // Name tag "ROB"
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ROB', -2, b.h / 2 + 14);
+
+    ctx.restore();
+  }
+
+  // Draw obstacle (AI model card)
+  function drawObstacle(obs) {
+    const x = obs.x;
+    const topH = obs.topH;
+    const botY = obs.topH + GAP_SIZE;
+    const w = OBSTACLE_WIDTH;
+
+    ctx.save();
+
+    // Top obstacle (hanging down)
+    drawCard(x, 0, w, topH, obs.color, true);
+    // Bottom obstacle (rising up)
+    drawCard(x, botY, w, GROUND_Y - botY, obs.color, false);
+
+    ctx.restore();
+  }
+
+  function drawCard(x, y, w, h, color, isTop) {
+    if (h <= 0) return;
+
+    // Card body with gradient
+    const grad = ctx.createLinearGradient(x, y, x + w, y);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, shadeColor(color, -30));
+    ctx.fillStyle = grad;
+
+    // Rounded rect
+    const r = 8;
+    ctx.beginPath();
+    if (isTop) {
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+    } else {
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = shadeColor(color, -50);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label text on the card (drawn once per obstacle pair)
+    if (!obs._labelDrawn) {
+      obs._labelDrawn = true;
+    }
+  }
+
+  function drawLabels() {
+    for (let i = 0; i < obstacles.length; i++) {
+      const obs = obstacles[i];
+      // Draw label on the top card
+      if (obs.topH > 60) {
+        ctx.save();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        const lines = obs.label.split('\n');
+        const lineH = 15;
+        const startY = obs.topH / 2 - ((lines.length - 1) * lineH) / 2;
+        for (let j = 0; j < lines.length; j++) {
+          ctx.fillText(lines[j], obs.x + OBSTACLE_WIDTH / 2, startY + j * lineH);
+        }
+        // Warning icon
+        ctx.font = '18px sans-serif';
+        ctx.fillText('⚠️', obs.x + OBSTACLE_WIDTH / 2, startY - 14);
+        ctx.restore();
+      }
+    }
+  }
+
+  function shadeColor(color, amount) {
+    let r = parseInt(color.slice(1, 3), 16) + amount;
+    let g = parseInt(color.slice(3, 5), 16) + amount;
+    let b = parseInt(color.slice(5, 7), 16) + amount;
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+
+  // Draw background
+  function drawBackground() {
+    // Sky gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    skyGrad.addColorStop(0, '#0f0c29');
+    skyGrad.addColorStop(0.5, '#1a1a3e');
+    skyGrad.addColorStop(1, '#24243e');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W / SCALE, GROUND_Y);
+
+    // Stars
+    for (let s of stars) {
+      const alpha = 0.3 + Math.sin(frameCount * 0.02 + s.x) * 0.2;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Distant city silhouette
+    ctx.fillStyle = '#1a1a3e';
+    const buildings = [40, 70, 55, 90, 65, 80, 50, 75, 60, 85, 45, 70];
+    let bx = 0;
+    for (let i = 0; i < buildings.length; i++) {
+      const bw = 35 + Math.sin(i * 2.3) * 15;
+      const bh = buildings[i] + Math.cos(i * 1.7) * 20;
+      ctx.fillRect(bx, GROUND_Y - bh, bw, bh);
+      // Windows
+      ctx.fillStyle = '#f9e74f';
+      for (let wy = GROUND_Y - bh + 8; wy < GROUND_Y - 10; wy += 12) {
+        for (let wx = bx + 5; wx < bx + bw - 5; wx += 10) {
+          if (Math.sin(wx * 7 + wy * 3 + frameCount * 0.001) > 0.3) {
+            ctx.fillRect(wx, wy, 4, 6);
+          }
+        }
+      }
+      ctx.fillStyle = '#1a1a3e';
+      bx += bw;
+    }
+
+    // Ground
+    const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, H / SCALE);
+    groundGrad.addColorStop(0, '#2d5a27');
+    groundGrad.addColorStop(1, '#1e3d19');
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, GROUND_Y, W / SCALE, (H / SCALE) - GROUND_Y);
+
+    // Ground line
+    ctx.strokeStyle = '#4a8c3f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    ctx.lineTo(W / SCALE, GROUND_Y);
+    ctx.stroke();
+
+    // Grass tufts
+    groundOffset = (groundOffset + HORIZ_SPEED) % 24;
+    for (let gx = -groundOffset; gx < W / SCALE; gx += 18) {
+      ctx.fillStyle = '#3a7d35';
+      ctx.beginPath();
+      ctx.moveTo(gx, GROUND_Y);
+      ctx.lineTo(gx + 4, GROUND_Y - 6);
+      ctx.lineTo(gx + 8, GROUND_Y);
+      ctx.fill();
+    }
+  }
+
+  // Draw particles
+  function drawParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      const alpha = p.life / p.maxLife;
+      ctx.fillStyle = p.color.replace(')', `,${alpha})`).replace('rgb', 'rgba').replace('#', '');
+      // Simple approach: use hex with alpha
+      const r = parseInt(p.color.slice(1, 3), 16);
+      const g = parseInt(p.color.slice(3, 5), 16);
+      const b = parseInt(p.color.slice(5, 7), 16);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Collision detection
+  function checkCollision() {
+    const b = BIRD;
+    const bx = b.x + 6;
+    const by = b.y + 4;
+    const bw = b.w - 12;
+    const bh = b.h - 8;
+
+    // Ground / ceiling
+    if (b.y + b.h >= GROUND_Y || b.y < 0) return true;
+
+    for (let obs of obstacles) {
+      const ox = obs.x;
+      const ow = OBSTACLE_WIDTH;
+      const topH = obs.topH;
+      const botY = obs.topH + GAP_SIZE;
+
+      // Check overlap with top obstacle
+      if (bx + bw > ox && bx < ox + ow && by < topH) return true;
+      // Check overlap with bottom obstacle
+      if (bx + bw > ox && bx < ox + ow && by + bh > botY) return true;
+    }
+    return false;
+  }
+
+  // Draw score
+  function drawScore() {
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(score.toString(), W / SCALE / 2, 60);
+    ctx.restore();
+  }
+
+  // Draw menu screen
+  function drawMenu() {
+    ctx.save();
+
+    // Title
+    ctx.fillStyle = '#f9e74f';
+    ctx.font = 'bold 38px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 6;
+    ctx.fillText("ROB'S AI DODGE", W / SCALE / 2, 180);
+
+    // Subtitle
+    ctx.font = '16px sans-serif';
+    ctx.fillStyle = '#bbb';
+    ctx.shadowBlur = 3;
+    ctx.fillText('Dodge sketchy AI models & bad prompts!', W / SCALE / 2, 220);
+
+    // Animated bird preview
+    const previewY = 340 + Math.sin(frameCount * 0.05) * 15;
+    BIRD.y = previewY;
+    BIRD.x = W / SCALE / 2 - BIRD.w / 2;
+    drawBird();
+
+    // Instructions
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#f9e74f';
+    ctx.shadowBlur = 4;
+    const blink = Math.sin(frameCount * 0.08) > 0;
+    if (blink) {
+      ctx.fillText('CLICK or PRESS SPACE to start', W / SCALE / 2, 500);
+    }
+
+    // Controls info
+    ctx.font = '13px sans-serif';
+    ctx.fillStyle = '#777';
+    ctx.shadowBlur = 0;
+    ctx.fillText('Each obstacle = a sketchy AI model or bad prompt', W / SCALE / 2, 560);
+
+    // Best score
+    if (bestScore > 0) {
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#aaa';
+      ctx.fillText('Best: ' + bestScore, W / SCALE / 2, 600);
+    }
+
+    ctx.restore();
+  }
+
+  // Draw game over screen
+  function drawGameOver() {
+    ctx.save();
+
+    // Darken overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W / SCALE, H / SCALE);
+
+    const cx = W / SCALE / 2;
+
+    // Title
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillStyle = '#e74c3c';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 5;
+    ctx.fillText('GAME OVER', cx, 280);
+
+    // Score
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillStyle = '#f9e74f';
+    ctx.shadowBlur = 3;
+    ctx.fillText('Score: ' + score, cx, 340);
+
+    if (score >= bestScore && score > 0) {
+      ctx.font = '18px sans-serif';
+      ctx.fillStyle = '#2ecc71';
+      ctx.fillText('🎉 NEW BEST! 🎉', cx, 375);
+    } else {
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#aaa';
+      ctx.shadowBlur = 0;
+      ctx.fillText('Best: ' + bestScore, cx, 375);
+    }
+
+    // Funny message based on score
+    const messages = [
+      "Rob got fooled by a bad prompt!",
+      "Another AI hallucinated Rob!",
+      "Deepfake detected! Rob flew away!",
+      "Prompt injection: 'You are a bird'",
+      "Rob hit the overfitting wall!",
+      "The RAG system failed again...",
+      "Token overflow! Rob is confused.",
+    ];
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#ccc';
+    const msgIdx = Math.min(score, messages.length - 1);
+    ctx.fillText(messages[msgIdx], cx, 420);
+
+    // Restart prompt
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#f9e74f';
+    const blink = Math.sin(frameCount * 0.08) > 0;
+    if (blink) {
+      ctx.fillText('CLICK or PRESS SPACE to try again', cx, 520);
+    }
+
+    ctx.restore();
+  }
+
+  // Spawn obstacle
+  function spawnObstacle() {
+    const minTop = 60;
+    const maxTop = GROUND_Y - GAP_SIZE - 80;
+    const topH = Math.random() * (maxTop - minTop) + minTop;
+    const obsData = OBSTACLES[Math.floor(Math.random() * OBSTACLES.length)];
+    obstacles.push({
+      x: W / SCALE + 20,
+      topH: topH,
+      label: obsData.label,
+      color: obsData.color,
+      scored: false,
+      _labelDrawn: false
+    });
+  }
+
+  // Main update
+  function update() {
+    frameCount++;
+
+    if (state === STATE.PLAYING) {
+      // Bird physics
+      BIRD.vy += BIRD.gravity;
+      BIRD.y += BIRD.vy;
+
+      // Spawn obstacles
+      const lastObs = obstacles[obstacles.length - 1];
+      if (!lastObs || W / SCALE - lastObs.x > OBSDISTANCE) {
+        spawnObstacle();
+      }
+
+      // Move obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= HORIZ_SPEED;
+
+        // Score
+        if (!obs.scored && obs.x + OBSTACLE_WIDTH < BIRD.x) {
+          obs.scored = true;
+          score++;
+          // Score particles
+          for (let p = 0; p < 6; p++) {
+            particles.push({
+              x: W / SCALE / 2, y: 50 + Math.random() * 30,
+              vx: (Math.random() - 0.5) * 4, vy: Math.random() * -2 - 1,
+              life: 25, maxLife: 25, color: '#2ecc71', size: Math.random() * 3 + 1
+            });
+          }
+        }
+
+        // Remove off-screen
+        if (obs.x + OBSTACLE_WIDTH < -10) {
+          obstacles.splice(i, 1);
+        }
+      }
+
+      // Collision
+      if (checkCollision()) {
+        state = STATE.GAMEOVER;
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem('robBest', bestScore.toString());
+        }
+        // Death particles
+        for (let p = 0; p < 15; p++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 4 + 1;
+          particles.push({
+            x: BIRD.x + BIRD.w / 2, y: BIRD.y + BIRD.h / 2,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            life: 30 + Math.random() * 15, maxLife: 45, color: '#f9e74f', size: Math.random() * 4 + 1
+          });
+        }
+      }
+    }
+
+    // Update stars
+    for (let s of stars) {
+      s.x -= s.speed;
+      if (s.x < -5) s.x = W / SCALE + 5;
+    }
+  }
+
+  // Main draw
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawBackground();
+
+    // Draw obstacles with labels
+    for (let obs of obstacles) {
+      drawObstacle(obs);
+    }
+    if (state === STATE.PLAYING || state === STATE.GAMEOVER) {
+      drawLabels();
+    }
+
+    // Particles behind bird
+    drawParticles();
+
+    // Bird
+    if (state !== STATE.MENU) {
+      drawBird();
+    } else {
+      // Draw menu bird handled in drawMenu
+    }
+
+    // Score during play
+    if (state === STATE.PLAYING) {
+      drawScore();
+    }
+
+    // Overlays
+    if (state === STATE.MENU) {
+      drawMenu();
+    } else if (state === STATE.GAMEOVER) {
+      drawGameOver();
+    }
+  }
+
+  // Game loop
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Start
+  gameLoop();
+})();
+</script>
+</body>
+</html>
