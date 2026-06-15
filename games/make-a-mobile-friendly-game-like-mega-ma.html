@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Rob vs AI Bots — Battle Network</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a1a;font-family:'Courier New',monospace;color:#fff}
+#game-container{position:relative;width:100%;max-width:480px;height:100vh;max-height:720px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden}
+
+/* TITLE SCREEN */
+#title-screen{position:absolute;inset:0;z-index:100;background:linear-gradient(180deg,#0a0a2e 0%,#1a0a3e 50%,#0a1a2e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+#title-screen h1{font-size:clamp(24px,6vw,48px);color:#0ff;text-shadow:0 0 20px #0ff,0 0 40px #08f;margin-bottom:10px;letter-spacing:3px}
+#title-screen h2{font-size:clamp(12px,3vw,18px);color:#f0f;text-shadow:0 0 10px #f0f;margin-bottom:40px}
+#title-screen .subtitle{font-size:clamp(10px,2.5vw,14px);color:#aaa;max-width:360px;line-height:1.6;margin-bottom:30px}
+.btn-start{background:linear-gradient(180deg,#0ff 0%,#08f 100%);color:#000;border:none;padding:15px 40px;font-size:clamp(16px,4vw,24px);font-family:'Courier New',monospace;font-weight:bold;cursor:pointer;border-radius:8px;text-transform:uppercase;letter-spacing:2px;box-shadow:0 0 20px #0ff}
+.btn-start:hover{transform:scale(1.05)}
+.btn-start:active{transform:scale(0.95)}
+
+/* BATTLE SCREEN */
+#battle-screen{display:none;flex-direction:column;height:100%;width:100%}
+
+/* TOP BAR - HP bars */
+#top-bar{padding:8px 10px;background:#111;border-bottom:2px solid #333;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-shrink:0}
+.hp-section{display:flex;flex-direction:column;gap:4px;flex:1}
+.player-hp .hp-label{font-size:clamp(9px,2vw,12px);color:#0ff;text-align:right}
+.enemy-hp .hp-label{font-size:clamp(9px,2vw,12px);color:#f44;text-align:left}
+.hp-bar-outer{width:100%;height:18px;background:#333;border-radius:4px;overflow:hidden;border:1px solid #555;position:relative}
+.hp-bar-inner{height:100%;border-radius:3px;transition:width 0.3s ease}
+.player-hp .hp-bar-inner{background:linear-gradient(90deg,#0f0,#0ff);float:right}
+.enemy-hp .hp-bar-inner{background:linear-gradient(90deg,#f44,#f80)}
+.hp-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;text-shadow:1px 1px #000}
+
+/* BATTLEFIELD */
+#battlefield{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:5px;position:relative;overflow:hidden;background:linear-gradient(180deg,#0a0a2e,#0f0a1e)}
+
+/* GRID */
+#grid-wrapper{display:flex;gap:4px}
+#player-zone{width:clamp(60px,18vw,90px);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+#enemy-zone{width:clamp(60px,18vw,90px);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+#grid-area{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:4px;background:#0a0a1a;border:2px solid #333;border-radius:6px}
+.grid-cell{width:clamp(48px,13vw,72px);height:clamp(48px,13vw,72px);background:#1a1a3e;border:1px solid #2a2a5e;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:clamp(10px,2.5vw,16px);position:relative;transition:all 0.1s}
+.grid-cell.player-here{background:#0a2a3e;border-color:#0ff;box-shadow:inset 0 0 15px #0ff4}
+.grid-cell.enemy-here{background:#2a0a1e;border-color:#f44;box-shadow:inset 0 0 15px #f444}
+.grid-cell.active-target{background:#3a2a0e;border-color:#fa0;box-shadow:inset 0 0 15px #fa04}
+
+/* CHARACTERS */
+#player-sprite,#enemy-sprite{position:absolute;font-size:clamp(28px,7vw,48px);transition:all 0.15s ease;z-index:5;pointer-events:none}
+#player-sprite{left:-60px;top:50%;transform:translateY(-50%)}
+#enemy-sprite{right:-60px;top:50%;transform:translateY(-50%)}
+
+/* ATTACK ANIMATIONS */
+.attack-line{position:absolute;height:3px;border-radius:2px;animation:attackMove 0.4s ease-out forwards;z-index:10}
+@keyframes attackMove{0%{opacity:1}80%{opacity:1}100%{opacity:0}}
+
+/* BAD PROMPT POPUP */
+.prompt-popup{position:absolute;background:#2a0a3e;border:2px solid #f0f;border-radius:6px;padding:4px 8px;font-size:clamp(9px,2.5vw,13px);color:#f0f;white-space:nowrap;z-index:20;animation:promptFloat 1.5s ease-out forwards;text-shadow:0 0 5px #f0f}
+@keyframes promptFloat{0%{opacity:0;transform:translateY(0) scale(0.8)}20%{opacity:1;transform:translateY(-10px) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(0.5)}}
+
+/* BOTTOM PANEL */
+#bottom-panel{flex-shrink:0;background:#111;border-top:2px solid #333;display:flex;flex-direction:column}
+
+/* CHIP SELECTOR */
+#chip-bar{display:flex;padding:4px 6px;gap:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;min-height:50px;align-items:center;background:#1a1a2e;border-bottom:1px solid #333}
+.chip-card{flex-shrink:0;width:clamp(48px,12vw,64px);height:clamp(48px,12vw,64px);background:linear-gradient(180deg,#2a2a5e,#1a1a3e);border:2px solid #4a4a7e;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all 0.1s;font-size:clamp(8px,2vw,11px);color:#aaa}
+.chip-card .chip-icon{font-size:clamp(16px,4vw,24px)}
+.chip-card .chip-name{margin-top:2px;font-weight:bold;color:#0ff;font-size:clamp(7px,1.8vw,9px)}
+.chip-card.selected{border-color:#0ff;background:linear-gradient(180deg,#3a3a6e,#2a2a4e);box-shadow:0 0 10px #0ff4}
+.chip-card.disabled{opacity:0.3;pointer-events:none}
+
+/* MESSAGE LOG */
+#message-log{padding:6px 10px;font-size:clamp(9px,2vw,12px);color:#aaa;background:#0a0a1a;min-height:28px;display:flex;align-items:center;border-top:1px solid #222}
+
+/* TOUCH CONTROLS */
+#touch-controls{display:flex;justify-content:space-between;padding:6px 10px;gap:10px;background:#0a0a1a}
+.dpad{width:clamp(100px,28vw,140px);height:clamp(100px,28vw,140px);position:relative}
+.dpad-btn{position:absolute;width:33%;height:33%;background:#2a2a5e;border:1px solid #4a4a7e;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:clamp(18px,5vw,28px);color:#0ff;cursor:pointer}
+.dpad-btn:active{background:#3a3a7e}
+.dpad-up{top:0;left:33%}
+.dpad-down{bottom:0;left:33%}
+.dpad-left{top:33%;left:0}
+.dpad-right{top:33%;right:0}
+.action-btns{display:flex;gap:8px;align-items:center}
+.action-btn{width:clamp(56px,14vw,72px);height:clamp(56px,14vw,72px);border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:clamp(10px,2.5vw,13px);font-weight:bold;cursor:pointer;font-family:'Courier New',monospace}
+.btn-battle{background:linear-gradient(180deg,#f44,#a00);border-color:#f66;color:#fff}
+.btn-battle:active{background:#c00}
+.btn-chip{background:linear-gradient(180deg,#4af,#08a);border-color:#6cf;color:#fff}
+.btn-chip:active{background:#068}
+
+/* DAMAGE FLASH */
+.damage-flash{animation:dmgFlash 0.2s ease-out}
+@keyframes dmgFlash{0%{filter:brightness(3)}100%{filter:brightness(1)}}
+
+/* SCREEN SHAKE */
+.shake{animation:shake 0.3s ease-out}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* VICTORY / DEFEAT OVERLAY */
+#overlay{position:absolute;inset:0;z-index:90;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+#overlay h2{font-size:clamp(24px,6vw,42px);margin-bottom:15px}
+#overlay p{font-size:clamp(12px,3vw,18px);color:#aaa;margin-bottom:25px;max-width:300px;line-height:1.5}
+
+/* BOSS BANNER */
+.boss-banner{position:absolute;top:-40px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#f008,transparent);padding:4px 20px;font-size:clamp(10px,2.5vw,14px);color:#f44;white-space:nowrap;z-index:30;animation:bannerSlide 0.5s ease-out forwards}
+@keyframes bannerSlide{0%{top:-40px;opacity:0}100%{top:0;opacity:1}}
+
+/* TROPHY / XP */
+.trophy-popup{position:absolute;font-size:clamp(20px,5vw,36px);z-index:25;animation:trophyPop 1s ease-out forwards}
+@keyframes trophyPop{0%{opacity:0;transform:scale(0) rotate(-180deg)}40%{opacity:1;transform:scale(1.3) rotate(10deg)}60%{transform:scale(1) rotate(0)}100%{opacity:0;transform:scale(0.5) translateY(-40px)}}
+
+/* CHIP FILL */
+#chip-fill-bar{height:3px;background:#222}
+#chip-fill-inner{height:100%;background:linear-gradient(90deg,#f0f,#0ff);width:0;transition:width 0.5s ease}
+
+/* ENEMY VARIANTS */
+.enemy-type-0 .enemy-sprite{filter:hue-rotate(0deg)}
+.enemy-type-1 .enemy-sprite{filter:hue-rotate(60deg)}
+.enemy-type-2 .enemy-sprite{filter:hue-rotate(180deg)}
+
+/* STATUS EFFECTS */
+.status-paralyzed{animation:paralyze 0.5s infinite}
+@keyframes paralyze{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* WAVE BANNER */
+.wave-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(2);font-size:clamp(36px,8vw,64px);color:#f0f;text-shadow:0 0 30px #f0f;z-index:50;animation:waveIn 1.5s ease-out forwards;pointer-events:none}
+@keyframes waveIn{0%{opacity:0;transform:translate(-50%,-50%) scale(2)}20%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{height:3px}
+::-webkit-scrollbar-track{background:#111}
+::-webkit-scrollbar-thumb{background:#4a4a7e;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <!-- TITLE SCREEN -->
+  <div id="title-screen">
+    <h1>⚡ ROB vs AI BOTS ⚡</h1>
+    <h2>BATTLE NETWORK</h2>
+    <p class="subtitle">In the year 2049, rogue AI bots flood the net with bad prompts and token bills. You are ROBO-7 "Rob", a battle-ready netrunner. Equip chips, navigate the grid, and destroy every bot!</p>
+    <button class="btn-start" id="btn-start">▶ START BATTLE</button>
+  </div>
+
+  <!-- BATTLE SCREEN -->
+  <div id="battle-screen">
+    <div id="top-bar">
+      <div class="hp-section player-hp">
+        <span class="hp-label">ROBO-7 "ROB" — PLAYER</span>
+        <div class="hp-bar-outer"><div class="hp-text" id="player-hp-text"></div><div class="hp-bar-inner" id="player-hp-bar"></div></div>
+      </div>
+      <div style="font-size:clamp(10px,2.5vw,14px);color:#f0f;flex-shrink:0">WAVE <span id="wave-num">1</span></div>
+      <div class="hp-section enemy-hp">
+        <span class="hp-label" id="enemy-name-label">ENEMY BOT</span>
+        <div class="hp-bar-outer"><div class="hp-text" id="enemy-hp-text"></div><div class="hp-bar-inner" id="enemy-hp-bar"></div></div>
+      </div>
+    </div>
+
+    <div id="battlefield">
+      <div id="grid-wrapper">
+        <div id="player-zone"><div id="player-sprite">🤖</div></div>
+        <div id="grid-area"></div>
+        <div id="enemy-zone"><div id="enemy-sprite" class="enemy-sprite">👾</div></div>
+      </div>
+    </div>
+
+    <div id="chip-fill-bar"><div id="chip-fill-inner"></div></div>
+
+    <div id="bottom-panel">
+      <div id="message-log">Select a chip or move on the grid...</div>
+      <div id="chip-bar"></div>
+      <div id="touch-controls">
+        <div class="dpad" id="dpad">
+          <div class="dpad-btn dpad-up" data-dir="up">▲</div>
+          <div class="dpad-btn dpad-down" data-dir="down">▼</div>
+          <div class="dpad-btn dpad-left" data-dir="left">◀</div>
+          <div class="dpad-btn dpad-right" data-dir="right">▶</div>
+        </div>
+        <div class="action-btns">
+          <button class="action-btn btn-chip" id="btn-chip-action">CHIP<br>USE</button>
+          <button class="action-btn btn-battle" id="btn-battle-action">BATTLE<br>SLASH</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY -->
+  <div id="overlay">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <button class="btn-start" id="btn-overlay-action">NEXT</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ==================== GAME STATE ====================
+const GRID_COLS = 5, GRID_ROWS = 3;
+let state = {
+  phase: 'title', // title, playerMove, playerSelectChip, chipSelected, playerAttack, enemyTurn, animating, victory, defeat
+  wave: 1,
+  playerHP: 200,
+  playerMaxHP: 200,
+  playerGridPos: {col:0, row:1},
+  enemyHP: 0,
+  enemyMaxHP: 0,
+  enemyGridPos: {col:4, row:1},
+  enemyType: 0,
+  selectedChipIdx: -1,
+  chips: [],
+  chipFill: 0, // 0-5, each fill = +20% chance to get a random chip on turn start
+  enemyName: '',
+  enemySprite: '👾',
+  playerIsParalyzed: false,
+  playerShieldActive: false,
+  enemyIsFrozen: false,
+  damageFlashTimer: null,
+  animating: false,
+  totalKills: 0,
+  score: 0,
+};
+
+// ==================== CHIP DEFINITIONS ====================
+const CHIP_DEFS = [
+  {name:'BUSTER',icon:'⚔️',desc:'Basic slash (15 dmg)',type:'attack',power:15,cost:0},
+  {name:'FIRE',icon:'🔥',desc:'Fire wave (30 dmg)',type:'attack',power:30,cost:1},
+  {name:'WAVE',icon:'🌊',desc:'Wave attack (25 dmg, hits all)',type:'attack',power:25,cost:1,isWave:true},
+  {name:'SWORD',icon:'🗡️',desc:'Long sword (40 dmg)',type:'attack',power:40,cost:2},
+  {name:'DEEP',icon:'💎',desc:'Deep impact (60 dmg)',type:'attack',power:60,cost:3},
+  {name:'HEAL',icon:'💚',desc:'Heal 30 HP',type:'heal',power:30,cost:1},
+  {name:'SPEEDUP',icon:'⚡',desc:'Next attack +50%',type:'buff',power:0,cost:1,buffType:'damage'},
+  {name:'SHIELD',icon:'🛡️',desc:'Block next hit',type:'buff',power:0,cost:2,buffType:'shield'},
+  {name:'DEEPWAVE',icon:'🌀',desc:'Deep wave (50 dmg all)',type:'attack',power:50,cost:3,isWave:true},
+  {name:'BIGBUSTER',icon:'💥',desc:'Big Buster (80 dmg)',type:'attack',power:80,cost:4},
+];
+
+// ==================== ENEMY TEMPLATES ====================
+const ENEMIES = [
+  {name:'PROMPT BOT v1',sprite:'🤖',hp:120,attacks:[
+    {name:'"undefined ref"',dmg:15,type:'single'},
+    {name:'"null ptr"',dmg:12,type:'single'},
+    {name:'"404 not found"',dmg:18,type:'wave'},
+  ]},
+  {name:'TOKEN TAKER',sprite:'👾',hp:160,attacks:[
+    {name:'"$5.99 token bill"',dmg:20,type:'single'},
+    {name:'"rate limit hit"',dmg:14,type:'single'},
+    {name:'"context overflow"',dmg:22,type:'wave'},
+  ]},
+  {name:'DEEPFAKE DRONE',sprite:'🦾',hp:200,attacks:[
+    {name:'"hallucinated data"',dmg:18,type:'single'},
+    {name:'"bad prompt gen"',dmg:25,type:'wave'},
+    {name:'"$99.99 bill"',dmg:30,type:'single'},
+  ]},
+  {name:'MEMORY LEAK BOT',sprite:'👹',hp:180,attacks:[
+    {name:'"memory leak!"',dmg:20,type:'wave'},
+    {name:'"stack overflow"',dmg:28,type:'single'},
+    {name:'"segfault"',dmg:24,type:'single'},
+  ]},
+  {name:'⚡ BOSS: OMEGA PROMPT ⚡',sprite:'🐉',hp:350,attacks:[
+    {name:'"OMEGA PROMPT"',dmg:35,type:'wave'},
+    {name:'"$999 BILL"',dmg:40,type:'single'},
+    {name:'"DEEPFAKE RAIN"',dmg:28,type:'wave'},
+    {name:'"PROMPT INJECTION"',dmg:32,type:'single'},
+  ]},
+];
+
+// ==================== BAD PROMPTS (visual) ====================
+const BAD_PROMPTS = [
+  '"undefined variable"',
+  '"null reference"',
+  '"stack overflow!"',
+  '"memory leak!!"',
+  '"404 NOT FOUND"',
+  '"SYNTAX ERROR"',
+  '"/dev/null"',
+  '"SEGFAULT"',
+  '"RANGE ERROR"',
+  '"TIMEOUT!"',
+  '"PROMPT INJECTION"',
+  '"HALLUCINATION"',
+  '"CONTEXT FULL"',
+  '"TOKEN LIMIT"',
+  '"RATE LIMITED"',
+];
+
+// ==================== DOM REFS ====================
+const $ = id => document.getElementById(id);
+const titleScreen = $('title-screen');
+const battleScreen = $('battle-screen');
+const overlay = $('overlay');
+const playerHpBar = $('player-hp-bar');
+const enemyHpBar = $('enemy-hp-bar');
+const playerHpText = $('player-hp-text');
+const enemyHpText = $('enemy-hp-text');
+const waveNumEl = $('wave-num');
+const enemyNameLabel = $('enemy-name-label');
+const messageLog = $('message-log');
+const chipBar = $('chip-bar');
+const overlayTitle = $('overlay-title');
+const overlayText = $('overlay-text');
+const overlayBtn = $('btn-overlay-action');
+const playerSpriteEl = $('player-sprite');
+const enemySpriteEl = $('enemy-sprite');
+const gridArea = $('grid-area');
+const chipFillInner = $('chip-fill-inner');
+
+// ==================== INIT ====================
+function init(){
+  buildGrid();
+  buildChipBar();
+  setupTouchControls();
+  $('btn-start').addEventListener('click', startGame);
+  overlayBtn.addEventListener('click', onOverlayClick);
+}
+
+function buildGrid(){
+  gridArea.innerHTML = '';
+  for(let r=0;r<GRID_ROWS;r++){
+    for(let c=0;c<gridCols;){
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      gridArea.appendChild(cell);
+      c++;
+    }
+  }
+}
+
+function buildChipBar(){
+  chipBar.innerHTML = '';
+  CHIP_DEFS.forEach((chip,i) => {
+    const card = document.createElement('div');
+    card.className = 'chip-card';
+    card.dataset.idx = i;
+    card.innerHTML = `<span class="chip-icon">${chip.icon}</span><span class="chip-name">${chip.name}</span>`;
+    card.addEventListener('click', () => selectChip(i));
+    chipBar.appendChild(card);
+  });
+}
+
+// ==================== TOUCH CONTROLS ====================
+function setupTouchControls(){
+  const dpadBtns = document.querySelectorAll('.dpad-btn');
+  let moveInterval = null;
+  let currentDir = null;
+
+  function doMove(dir){
+    if(state.phase !== 'playerMove' || state.animating) return;
+    let nc = state.playerGridPos.col, nr = state.playerGridPos.row;
+    if(dir==='left') nc--;
+    else if(dir==='right') nc++;
+    else if(dir==='up') nr--;
+    else if(dir==='down') nr++;
+    if(nc>=0 && nc<GRID_COLS && nr>=0 && nr<GRID_ROWS){
+      state.playerGridPos = {col:nc, row:nr};
+      updateSprites();
+      playSound('move');
+    }
+  }
+
+  dpadBtns.forEach(btn => {
+    const dir = btn.dataset.dir;
+    let intervalId = null;
+
+    function startMove(){
+      if(state.phase !== 'playerMove' || state.animating) return;
+      doMove(dir);
+      intervalId = setInterval(() => { if(state.phase === 'playerMove') doMove(dir); }, 180);
+    }
+    function stopMove(){ clearInterval(intervalId); }
+
+    btn.addEventListener('touchstart', e => { e.preventDefault(); startMove(); });
+    btn.addEventListener('touchend', stopMove);
+    btn.addEventListener('touchcancel', stopMove);
+    btn.addEventListener('mousedown', startMove);
+    btn.addEventListener('mouseup', stopMove);
+    btn.addEventListener('mouseleave', stopMove);
+  });
+
+  $('btn-battle-action').addEventListener('click', () => {
+    if(state.phase === 'playerMove') playerAttack();
+    else if(state.phase === 'chipSelected') useChip();
+  });
+
+  $('btn-chip-action').addEventListener('click', () => {
+    if(state.phase === 'playerMove' && state.chips.length > 0){
+      state.phase = 'chipSelected';
+      messageLog.textContent = 'SELECT A CHIP, THEN PRESS BATTLE SLASH!';
+      highlightChips();
+    } else if(state.phase === 'chipSelected'){
+      // deselect all
+      state.selectedChipIdx = -1;
+      state.phase = 'playerMove';
+      messageLog.textContent = 'Select a chip or move on the grid...';
+      clearChipSelection();
+    }
+  });
+
+  // Swipe support for mobile
+  let touchStartX=0, touchStartY=0;
+  const bf = $('battlefield');
+  bf.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, {passive:true});
+  bf.addEventListener('touchend', e => {
+    if(state.phase !== 'playerMove' || state.animating) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if(Math.abs(dx)<20 && Math.abs(dy)<20) return; // too small
+    let dir;
+    if(Math.abs(dx)>Math.abs(dy)){
+      dir = dx>0?'right':'left';
+    } else {
+      dir = dy>0?'down':'up';
+    }
+    doMove(dir);
+  }, {passive:true});
+}
+
+// ==================== GAME LOGIC ====================
+function startGame(){
+  titleScreen.style.display = 'none';
+  battleScreen.style.display = 'flex';
+  state.wave = 1;
+  state.playerHP = state.playerMaxHP;
+  state.totalKills = 0;
+  state.score = 0;
+  loadWave(1);
+}
+
+function loadWave(wave){
+  const eIdx = Math.min(wave-1, ENEMIES.length-1);
+  const template = ENEMIES[eIdx];
+  const scale = 1 + (wave-1)*0.15; // each wave 15% harder after first
+
+  state.enemyMaxHP = Math.floor(template.hp * scale);
+  state.enemyHP = state.enemyMaxHP;
+  state.enemyType = eIdx;
+  state.enemyName = template.name;
+  state.enemySprite = template.sprite;
+  state.chipFill = 0;
+  state.playerIsParalyzed = false;
+  state.playerShieldActive = false;
+  state.selectedChipIdx = -1;
+
+  // Give starting chips each wave
+  state.chips = [
+    {...CHIP_DEFS[0]}, // BUSTER always available
+  ];
+
+  // Add random chips based on chipFill progress from previous wave
+  const extraChips = Math.min(state.chipFill, 3);
+  for(let i=0;i<extraChips;i++){
+    const ci = Math.floor(Math.random()*(CHIP_DEFS.length-1))+1; // skip BUSTER
+    state.chips.push({...CHIP_DEFS[ci]});
+  }
+
+  // Always add a heal if not present
+  if(!state.chips.find(c=>c.type==='heal')){
+    state.chips.push({...CHIP_DEFS[5]});
+  }
+
+  state.enemyGridPos = {col:4, row:1};
+  state.playerGridPos = {col:0, row:1};
+
+  // Place enemy on random grid cell (not player's column)
+  const ec = Math.min(3+Math.floor(Math.random()*2), GRID_COLS-1);
+  const er = Math.floor(Math.random()*GRID_ROWS);
+  state.enemyGridPos = {col:ec, row:er};
+
+  waveNumEl.textContent = wave;
+  enemyNameLabel.textContent = 'WAVE ' + wave + ': ' + template.name;
+  updateHPBars();
+  updateSprites();
+  renderChipBar();
+  messageLog.textContent = `⚡ ${template.name} appears!`;
+  state.phase = 'playerMove';
+
+  // Show boss banner for wave 5+
+  if(wave >= 5){
+    showBanner('⚡ BOSS WAVE ⚡');
+  } else {
+    showBanner('WAVE ' + wave);
+  }
+}
+
+function updateHPBars(){
+  const pp = Math.max(0, state.playerHP / state.playerMaxHP * 100);
+  const ep = Math.max(0, state.enemyHP / state.enemyMaxHP * 100);
+  playerHpBar.style.width = pp+'%';
+  enemyHpBar.style.width = ep+'%';
+  playerHpText.textContent = Math.max(0,state.playerHP) + '/' + state.playerMaxHP;
+  enemyHpText.textContent = Math.max(0,state.enemyHP) + '/' + state.enemyMaxHP;
+
+  // Color changes when low HP
+  if(pp < 25){
+    playerHpBar.style.background = 'linear-gradient(90deg,#f44,#f80)';
+  } else {
+    playerHpBar.style.background = '';
+  }
+}
+
+function updateSprites(){
+  const pCol = state.playerGridPos.col;
+  const pRow = state.playerGridPos.row;
+  const eCol = state.enemyGridPos.col;
+  const eRow = state.enemyGridPos.row;
+
+  // Update grid cells
+  document.querySelectorAll('.grid-cell').forEach(cell => {
+    cell.classList.remove('player-here','enemy-here');
+    const c = parseInt(cell.dataset.col);
+    const r = parseInt(cell.dataset.row);
+    if(c===pCol && r===pRow) cell.classList.add('player-here');
+    if(c===eCol && r===eRow) cell.classList.add('enemy-here');
+  });
+
+  // Position sprites over their cells
+  positionSprite(playerSpriteEl, pCol, pRow);
+  positionSprite(enemySpriteEl, eCol, eRow);
+}
+
+function positionSprite(el, col, row){
+  const cells = document.querySelectorAll('.grid-cell');
+  let targetCell;
+  for(let i=0;i<cells.length;i++){
+    if(parseInt(cells[i].dataset.col)===col && parseInt(cells[i].dataset.row)===row){
+      targetCell = cells[i];
+      break;
+    }
+  }
+  if(!targetCell) return;
+  const rect = targetCell.getBoundingClientRect();
+  const parentRect = gridArea.getBoundingClientRect();
+  el.style.left = (rect.left - parentRect.left + rect.width/2 - parseInt(el.style.fontSize||36)/2) + 'px';
+  el.style.top = (rect.top - parentRect.top + rect.height/2 - parseInt(el.style.fontSize||36)/2) + 'px';
+}
+
+function renderChipBar(){
+  const cards = chipBar.querySelectorAll('.chip-card');
+  cards.forEach((card,i) => {
+    if(i < state.chips.length){
+      card.classList.remove('disabled');
+      if(state.selectedChipIdx === i) card.classList.add('selected');
+      else card.classList.remove('selected');
+    } else {
+      card.classList.add('disabled');
+      card.classList.remove('selected');
+    }
+  });
+}
+
+function highlightChips(){
+  // Visual hint that chips can be selected
+  chipBar.style.animation = 'none';
+  chipBar.offsetHeight; // reflow
+  chipBar.style.animation = '';
+}
+
+function clearChipSelection(){
+  state.selectedChipIdx = -1;
+  renderChipBar();
+}
+
+// ==================== PLAYER ACTIONS ====================
+function selectChip(idx){
+  if(state.phase !== 'chipSelected') return;
+  if(idx >= state.chips.length) return;
+  const chip = state.chips[idx];
+  if(chip.cost > state.chipFill && chip.cost > 0){
+    messageLog.textContent = 'Not enough chip fill! Need ' + chip.cost + '.';
+    playSound('error');
+    return;
+  }
+  state.selectedChipIdx = idx;
+  renderChipBar();
+  messageLog.textContent = `SELECTED: ${chip.name} — ${chip.desc}`;
+  playSound('select');
+}
+
+function playerAttack(){
+  if(state.phase === 'playerMove'){
+    // Basic buster slash
+    const dmg = calcDamage(15);
+    dealDamageToEnemy(dmg, '⚔️ BUSTER SLASH!');
+    state.phase = 'animating';
+  } else if(state.phase === 'chipSelected' && state.selectedChipIdx >= 0){
+    useChip();
+  }
+}
+
+function useChip(){
+  const chip = state.chips[state.selectedChipIdx];
+  if(!chip) return;
+
+  // Deduct cost
+  if(chip.cost > 0){
+    state.chipFill -= chip.cost;
+  }
+
+  if(chip.type === 'attack'){
+    const dmg = calcDamage(chip.power);
+    const label = chip.isWave ? `🌀 ${chip.name} (ALL ENEMIES)` : `${chip.icon} ${chip.name}`;
+    showAttackLine('player-to-enemy', chip.isWave ? '#f80' : '#ff0');
+    setTimeout(() => {
+      dealDamageToEnemy(dmg, label);
+    }, 200);
+  } else if(chip.type === 'heal'){
+    state.playerHP = Math.min(state.playerMaxHP, state.playerHP + chip.power);
+    messageLog.textContent = `💚 Healed ${chip.power} HP!`;
+    showFloatingText('+', '#0f0');
+    updateHPBars();
+  } else if(chip.type === 'buff'){
+    if(chip.buffType === 'damage'){
+      state.playerIsParalyzed = false; // remove paralyze for simplicity, or add buff state
+      messageLog.textContent = `⚡ DAMAGE BOOSTED! Next attack +50%!`;
+      showFloatingText('⚡','#ff0');
+    } else if(chip.buffType === 'shield'){
+      state.playerShieldActive = true;
+      messageLog.textContent = `🛡️ SHIELD ACTIVE! Blocks next hit.`;
+      showFloatingText('🛡️','#4af');
+    }
+  }
+
+  // Remove used chip from hand (except buster)
+  if(chip.name !== 'BUSTER'){
+    state.chips.splice(state.selectedChipIdx, 1);
+  } else {
+    state.selectedChipIdx = -1;
+  }
+
+  renderChipBar();
+  updateHPBars();
+  state.phase = 'animating';
+}
+
+function calcDamage(base){
+  let mult = 1;
+  // Check for damage buff (simplified: if last chip was SPEEDUP)
+  return Math.floor(base * mult);
+}
+
+function dealDamageToEnemy(dmg, label){
+  state.enemyHP -= dmg;
+  enemySpriteEl.classList.add('damage-flash');
+  setTimeout(()=>enemySpriteEl.classList.remove('damage-flash'),200);
+
+  // Show bad prompt as damage indicator
+  const bp = BAD_PROMPTS[Math.floor(Math.random()*BAD_PROMPTS.length)];
+  showPromptPopup(bp, state.enemyGridPos.col, state.enemyGridPos.row);
+
+  messageLog.textContent = `${label} → ${dmg} DMG!`;
+  playSound('hit');
+
+  // Screen shake on enemy zone
+  $('enemy-zone').classList.add('shake');
+  setTimeout(()=>$('enemy-zone').classList.remove('shake'),300);
+
+  updateHPBars();
+
+  if(state.enemyHP <= 0){
+    setTimeout(()=>enemyDefeated(), 400);
+  } else {
+    setTimeout(()=>startEnemyTurn(), 600);
+  }
+}
+
+function enemyDefeated(){
+  state.totalKills++;
+  state.score += 100 * state.wave;
+
+  // Show trophy
+  showTrophy();
+
+  // Chip fill increases on kill
+  state.chipFill = Math.min(5, state.chipFill + 1);
+
+  updateChipFillBar();
+
+  setTimeout(()=>{
+    state.wave++;
+    loadWave(state.wave);
+    state.phase = 'playerMove';
+  }, 1200);
+}
+
+function startEnemyTurn(){
+  if(state.animating) return;
+  state.phase = 'enemyTurn';
+  messageLog.textContent = `${state.enemyName} is attacking...`;
+
+  const template = ENEMIES[state.enemyType];
+  const atkIdx = Math.floor(Math.random()*template.attacks.length);
+  const attack = template.attacks[atkIdx];
+
+  // Enemy moves first (random valid move)
+  setTimeout(()=>{
+    enemyMove();
+  }, 300);
+
+  setTimeout(()=>{
+    if(state.enemyIsFrozen){
+      state.enemyIsFrozen = false;
+      messageLog.textContent = `${state.enemyName} is frozen! Skips turn.`;
+      showFloatingText('❄️','#4ff');
+      setTimeout(()=>startPlayerTurn(), 500);
+      return;
+    }
+
+    // Show attack animation
+    const bp = BAD_PROMPTS[Math.floor(Math.random()*BAD_PROMPTS.length)];
+    showPromptPopup(bp, state.enemyGridPos.col, state.enemyGridPos.row);
+
+    if(attack.type === 'wave'){
+      showAttackLine('enemy-to-player', '#f44');
+    } else {
+      showAttackLine('enemy-to-player', '#f80');
+    }
+
+    setTimeout(()=>{
+      let dmg = attack.dmg;
+      // Random variance ±20%
+      dmg = Math.floor(dmg * (0.8 + Math.random()*0.4));
+
+      if(state.playerShieldActive){
+        state.playerShieldActive = false;
+        messageLog.textContent = `🛡️ SHIELDED! ${attack.name} blocked!`;
+        showFloatingText('🛡️','#4af');
+        playSound('block');
+      } else {
+        state.playerHP -= dmg;
+        $('player-zone').classList.add('shake');
+        setTimeout(()=>$('player-zone').classList.remove('shake'),300);
+        messageLog.textContent = `${attack.name} → ${dmg} DMG!`;
+        playSound('hit');
+
+        if(state.playerHP <= 0){
+          state.playerHP = 0;
+          updateHPBars();
+          setTimeout(()=>showDefeat(), 400);
+          return;
+        }
+      }
+
+      updateHPBars();
+      setTimeout(()=>startPlayerTurn(), 500);
+    }, 300);
+  }, 600);
+}
+
+function enemyMove(){
+  // Simple AI: move toward player or random valid cell
+  const ec = state.enemyGridPos.col;
+  const er = state.enemyGridPos.row;
+  const pc = state.playerGridPos.col;
+  const pr = state.playerGridPos.row;
+
+  let nc = ec, nr = er;
+  // 60% chance to move toward player
+  if(Math.random() < 0.6){
+    if(ec > pc) nc--;
+    else if(ec < pc) nc++;
+    if(er !== pr && Math.random()<0.3) nr = pr;
+  } else {
+    const dirs = [{dc:1,dr:0},{dc:-1,dr:0},{dc:0,dr:1},{dc:0,dr:-1}];
+    const d = dirs[Math.floor(Math.random()*dirs.length)];
+    nc += d.dc; nr += d.dr;
+  }
+
+  // Clamp to grid
+  nc = Math.max(2, Math.min(GRID_COLS-1, nc));
+  nr = Math.max(0, Math.min(GRID_ROWS-1, nr));
+
+  state.enemyGridPos = {col:nc, row:nr};
+  updateSprites();
+}
+
+function startPlayerTurn(){
+  if(state.phase === 'animating') return;
+  state.phase = 'playerMove';
+  messageLog.textContent = 'Select a chip or move on the grid...';
+  clearChipSelection();
+  renderChipBar();
+}
+
+// ==================== VISUAL EFFECTS ====================
+function showAttackLine(dir, color){
+  const bf = $('battlefield');
+  const line = document.createElement('div');
+  line.className = 'attack-line';
+  line.style.background = `linear-gradient(90deg,${color},${color}0)`;
+
+  if(dir === 'player-to-enemy'){
+    line.style.top = '50%';
+    line.style.left = '10%';
+    line.style.width = '80%';
+    line.style.transform = 'translateY(-50%)';
+  } else {
+    line.style.top = '50%';
+    line.style.right = '10%';
+    line.style.left = 'auto';
+    line.style.width = '80%';
+    line.style.background = `linear-gradient(90deg,${color}0,${color})`;
+    line.style.transform = 'translateY(-50%)';
+  }
+
+  bf.appendChild(line);
+  setTimeout(()=>line.remove(), 450);
+}
+
+function showPromptPopup(text, col, row){
+  const cells = document.querySelectorAll('.grid-cell');
+  let targetCell;
+  for(let i=0;i<cells.length;i++){
+    if(parseInt(cells[i].dataset.col)===col && parseInt(cells[i].dataset.row)===row){
+      targetCell = cells[i];
+      break;
+    }
+  }
+  if(!targetCell) return;
+
+  const popup = document.createElement('div');
+  popup.className = 'prompt-popup';
+  popup.textContent = text;
+  popup.style.left = (targetCell.offsetLeft + targetCell.offsetWidth/2 - 40) + 'px';
+  popup.style.top = (targetCell.offsetTop - 30) + 'px';
+
+  gridArea.appendChild(popup);
+  setTimeout(()=>popup.remove(), 1500);
+}
+
+function showFloatingText(text, color){
+  const bf = $('battlefield');
+  const el = document.createElement('div');
+  el.textContent = text;
+  el.style.cssText = `position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);font-size:clamp(28px,7vw,48px);color:${color};text-shadow:0 0 10px ${color};z-index:30;animation:trophyPop 1s ease-out forwards;pointer-events:none`;
+  bf.appendChild(el);
+  setTimeout(()=>el.remove(), 1000);
+}
+
+function showTrophy(){
+  const bf = $('battlefield');
+  const el = document.createElement('div');
+  el.className = 'trophy-popup';
+  el.textContent = '🏆';
+  el.style.left = '50%';
+  el.style.top = '40%';
+  el.style.transform = 'translate(-50%,-50%)';
+  bf.appendChild(el);
+  setTimeout(()=>el.remove(), 1000);
+}
+
+function showBanner(text){
+  const bf = $('battlefield');
+  const el = document.createElement('div');
+  el.className = 'wave-banner';
+  el.textContent = text;
+  bf.appendChild(el);
+  setTimeout(()=>el.remove(), 1500);
+}
+
+function updateChipFillBar(){
+  const pct = (state.chipFill / 5) * 100;
+  chipFillInner.style.width = pct + '%';
+}
+
+// ==================== OVERLAY ====================
+function showVictory(){
+  state.phase = 'victory';
+  overlayTitle.textContent = '🎉 VICTORY! 🎉';
+  overlayTitle.style.color = '#0f0';
+  overlayText.innerHTML = `You defeated all ${state.totalKills} waves!<br>Score: <span style="color:#ff0">${state.score}</span><br>You are the ultimate netrunner!`;
+  overlayBtn.textContent = 'PLAY AGAIN';
+  overlay.style.display = 'flex';
+}
+
+function showDefeat(){
+  state.phase = 'defeat';
+  overlayTitle.textContent = '💀 DEFEATED 💀';
+  overlayTitle.style.color = '#f44';
+  overlayText.innerHTML = `${state.enemyName} overwhelmed you!<br>Waves cleared: ${state.wave-1}<br>Score: <span style="color:#ff0">${state.score}</span>`;
+  overlayBtn.textContent = 'TRY AGAIN';
+  overlay.style.display = 'flex';
+}
+
+function onOverlayClick(){
+  overlay.style.display = 'none';
+  if(state.phase === 'victory' || state.phase === 'defeat'){
+    // Reset everything
+    titleScreen.style.display = 'flex';
+    battleScreen.style.display = 'none';
+  }
+}
+
+// ==================== SOUND (Web Audio API) ====================
+let audioCtx;
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type){
+  try{
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.value = 0.08;
+
+    switch(type){
+      case 'move':
+        osc.frequency.value = 400;
+        osc.type = 'square';
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+        osc.start(); osc.stop(ctx.currentTime+0.05);
+        break;
+      case 'hit':
+        osc.frequency.value = 200;
+        osc.type = 'sawtooth';
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start(); osc.stop(ctx.currentTime+0.15);
+        break;
+      case 'select':
+        osc.frequency.value = 600;
+        osc.type = 'sine';
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        osc.start(); osc.stop(ctx.currentTime+0.08);
+        break;
+      case 'error':
+        osc.frequency.value = 150;
+        osc.type = 'square';
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        osc.start(); osc.stop(ctx.currentTime+0.2);
+        break;
+      case 'block':
+        osc.frequency.value = 800;
+        osc.type = 'sine';
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        osc.start(); osc.stop(ctx.currentTime+0.1);
+        break;
+    }
+  } catch(e){}
+}
+
+// ==================== KEYBOARD CONTROLS (desktop) ====================
+document.addEventListener('keydown', e => {
+  if(state.phase !== 'playerMove' || state.animating) return;
+  switch(e.key){
+    case 'ArrowLeft': case 'a': doPlayerMove('left'); break;
+    case 'ArrowRight': case 'd': doPlayerMove('right'); break;
+    case 'ArrowUp': case 'w': doPlayerMove('up'); break;
+    case 'ArrowDown': case 's': doPlayerMove('down'); break;
+    case ' ': case 'Enter':
+      if(state.phase === 'playerMove') playerAttack();
+      else if(state.phase === 'chipSelected' && state.selectedChipIdx>=0) useChip();
+      e.preventDefault();
+      break;
+  }
+});
+
+function doPlayerMove(dir){
+  let nc = state.playerGridPos.col, nr = state.playerGridPos.row;
+  if(dir==='left') nc--; else if(dir==='right') nc++;
+  else if(dir==='up') nr--; else if(dir==='down') nr++;
+  if(nc>=0 && nc<GRID_COLS && nr>=0 && nr<GRID_ROWS){
+    state.playerGridPos = {col:nc, row:nr};
+    updateSprites();
+    playSound('move');
+  }
+}
+
+// ==================== RESIZE HANDLER ====================
+window.addEventListener('resize', () => {
+  if(state.phase === 'playerMove' || state.phase === 'enemyTurn'){
+    updateSprites();
+  }
+});
+
+// ==================== START ====================
+init();
+
+})();
+</script>
+</body>
+</html>
