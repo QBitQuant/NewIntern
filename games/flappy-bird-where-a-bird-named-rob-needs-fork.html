@@ -22,7 +22,7 @@ canvas { display: block; margin: 0 auto; cursor: pointer; }
   function resize() {
     const maxW = 480, maxH = 720;
     const ratio = maxW / maxH;
-    let w = window.innerWidth, h = window.innerHeight;
+    let w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
     if (w / h > ratio) { W = h * ratio; H = h; } else { W = w; H = w / ratio; }
     canvas.width = 480;
     canvas.height = 720;
