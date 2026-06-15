@@ -239,10 +239,6 @@ canvas { display: block; margin: 0 auto; cursor: pointer; }
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Label text on the card (drawn once per obstacle pair)
-    if (!obs._labelDrawn) {
-      obs._labelDrawn = true;
-    }
   }
 
   function drawLabels() {
