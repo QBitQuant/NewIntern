@@ -188,7 +188,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a1a;font-family:
   <div id="overlay">
     <h2 id="overlay-title"></h2>
     <p id="overlay-text"></p>
-    <button class="btn-start" id="btn-overlay-action">NEXT</button>
+    <button class="btn-start" id="btn-overlay-action">PUSH AGAIN</button>
   </div>
 </div>
 
@@ -318,7 +318,7 @@ function init(){
 function buildGrid(){
   gridArea.innerHTML = '';
   for(let r=0;r<GRID_ROWS;r++){
-    for(let c=0;c<gridCols;){
+    for(let c=0;c<GRID_COLS;){
       const cell = document.createElement('div');
       cell.className = 'grid-cell';
       cell.dataset.row = r;
@@ -874,7 +874,7 @@ function showVictory(){
   overlayTitle.textContent = '🎉 VICTORY! 🎉';
   overlayTitle.style.color = '#0f0';
   overlayText.innerHTML = `You defeated all ${state.totalKills} waves!<br>Score: <span style="color:#ff0">${state.score}</span><br>You are the ultimate netrunner!`;
-  overlayBtn.textContent = 'PLAY AGAIN';
+  overlayBtn.textContent = 'PUSH AGAIN';
   overlay.style.display = 'flex';
 }
 
@@ -883,7 +883,7 @@ function showDefeat(){
   overlayTitle.textContent = '💀 DEFEATED 💀';
   overlayTitle.style.color = '#f44';
   overlayText.innerHTML = `${state.enemyName} overwhelmed you!<br>Waves cleared: ${state.wave-1}<br>Score: <span style="color:#ff0">${state.score}</span>`;
-  overlayBtn.textContent = 'TRY AGAIN';
+  overlayBtn.textContent = 'PUSH AGAIN';
   overlay.style.display = 'flex';
 }
 
