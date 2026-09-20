@@ -170,15 +170,24 @@
 
   let curTps=0, running=false;
 
-  function setNeedle(tps){
-    tps=Math.max(0,Math.min(MAX_TPS,tps));
+  // smooth needle animation: interpolate toward a target each frame
+  let targetTps=0;
+  function setNeedle(t){ targetTps=t; }
+
+  const FRAME=1000/60;
+  function tick(){
+    // ease current toward target (exponential smoothing)
+    curTps += (targetTps - curTps) * 0.18;
+    if(Math.abs(targetTps-curTps)<0.5) curTps=targetTps;
+    const tps=Math.max(0,Math.min(MAX_TPS,curTps));
     const ang=-90+(tps/MAX_TPS)*180;
     needle.setAttribute("transform","rotate("+ang+" 160 178)");
     gaugeText.textContent=Math.round(tps);
-    // fill arc from full (offset 377) down toward 0 as speed rises
     const off=377-(tps/MAX_TPS)*377;
     fill.setAttribute("stroke-dashoffset",off);
+    requestAnimationFrame(tick);
   }
+  requestAnimationFrame(tick);
 
   function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
