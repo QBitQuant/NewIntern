@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTKYC — Coworker Hub</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a23; --panel2:#1e222e; --border:#262b39;
+    --text:#e6e9ef; --muted:#8b93a7; --accent:#6c8aff; --accent2:#3ecf8e;
+    --danger:#ff5c74; --warn:#f0a94a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:linear-gradient(90deg,#1a1e2b,#171a23);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+  header .logo{width:26px;height:26px;border-radius:7px;background:conic-gradient(from 45deg,var(--accent),var(--accent2),var(--accent));box-shadow:0 0 14px rgba(108,138,255,.5);}
+  header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.3px;}
+  header .sub{color:var(--muted);font-size:12px;margin-left:auto;}
+  .status-dot{width:9px;height:9px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px currentColor;}
+  .status-dot.online{background:var(--accent2);box-shadow:0 0 8px var(--accent2);}
+  nav{display:flex;gap:4px;padding:8px 20px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  nav button{background:transparent;color:var(--muted);border:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;}
+  nav button:hover{color:var(--text);background:var(--panel2);}
+  nav button.active{color:#fff;background:var(--accent);}
+  main{max-width:1000px;margin:0 auto;padding:20px;}
+  .view{display:none;animation:fade .25s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:14px 16px;}
+  .card .n{font-size:26px;font-weight:700;}
+  .card .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;}
+  .panel h2{margin:0 0 12px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  input,select,textarea{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;width:100%;}
+  textarea{resize:vertical;min-height:60px;}
+  button.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer;font-weight:500;}
+  button.btn:hover{filter:brightness(1.08);}
+  button.btn.sec{background:var(--panel2);border:1px solid var(--border);color:var(--text);}
+  button.btn.danger{background:var(--danger);}
+  .list{display:flex;flex-direction:column;gap:6px;}
+  .item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;}
+  .item .who{display:flex;align-items:center;gap:9px;min-width:0;flex:1;}
+  .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex:none;}
+  .item .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .item .meta{color:var(--muted);font-size:12px;}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--panel);border:1px solid var(--border);color:var(--muted);}
+  .badge.role-admin{color:#f7c475;border-color:#5a4a20}
+  .badge.role-member{color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:26px;font-size:14px;}
+  .msg{padding:8px 0;border-bottom:1px solid var(--border);}
+  .msg:last-child{border-bottom:none;}
+  .msg .head{display:flex;gap:8px;align-items:baseline;margin-bottom:3px;}
+  .msg .who{font-weight:600;font-size:13px;}
+  .msg .when{color:var(--muted);font-size:11px;}
+  .msg .body{color:var(--text);white-space:pre-wrap;word-break:break-word;}
+  .msg .kickoff-promotes{margin-left:auto;color:var(--warn);font-size:12px;font-weight:600;}
+  table{width:100%;border-collapse:collapse;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;}
+  th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+  tr:first-child td{padding-top:0;}
+  .rank{color:var(--accent);font-weight:700;width:28px;}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);padding:10px 18px;border-radius:9px;font-size:13px;opacity:0;transition:.3s;pointer-events:none;box-shadow:0 6px 24px rgba(0,0,0,.4);}
+  .toast.show{opacity:1;}
+  .toast.err{border-color:var(--danger);color:var(--danger)}
+  .toast.ok{border-color:var(--accent2);color:var(--accent2)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}}
+  .link{color:var(--accent);text-decoration:none;font-size:12px}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"></div>
+  <h1>GTKYC — Coworker Hub</h1>
+  <span id="conn" style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;">
+    <span id="dot" class="status-dot"></span><span id="connTxt">connecting…</span>
+  </span>
+  <div class="sub" id="me"></div>
+</header>
+
+<nav>
+  <button data-view="dashboard" class="active">Dashboard</button>
+  <button data-view="members">Members</button>
+  <button data-view="channels">Channels</button>
+  <button data-view="chat">Chat</button>
+  <button data-view="kickoffs">Kickoffs</button>
+  <button data-view="leaderboard">Leaderboard</button>
+</nav>
+
+<main>
+  <section id="dashboard" class="view active">
+    <div class="cards">
+      <div class="card"><div class="n" id="cMembers">–</div><div class="l">Members</div></div>
+      <div class="card"><div class="n" id="cChannels">–</div><div class="l">Channels</div></div>
+      <div class="card"><div class="n" id="cMessages">–</div><div class="l">Messages</div></div>
+      <div class="card"><div class="n" id="cKickoffs">–</div><div class="l">Kickoffs</div></div>
+    </div>
+    <div class="panel">
+      <h2>Your profile</h2>
+      <div id="profileBox" class="row"></div>
+    </div>
+    <div class="panel">
+      <h2>Activity this session</h2>
+      <div id="recentBox" class="list"></div>
+    </div>
+  </section>
+
+  <section id="members" class="view">
+    <div class="panel">
+      <h2>Members <span class="badge" id="mCount"></span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <input id="newName" placeholder="Your display name (set it once)" style="max-width:240px">
+        <button class="btn" onclick="setName()">Set name</button>
+      </div>
+      <div id="memberList" class="list"></div>
+    </div>
+  </section>
+
+  <section id="channels" class="view">
+    <div class="panel">
+      <h2>Channels</h2>
+      <div class="row" style="margin-bottom:12px">
+        <input id="newChName" placeholder="New channel name" style="max-width:240px">
+        <button class="btn" onclick="createChannel()">Create channel</button>
+      </div>
+      <div id="channelList" class="list"></div>
+    </div>
+  </section>
+
+  <section id="chat" class="view">
+    <div class="panel">
+      <h2>Chat <select id="chatSel" style="max-width:260px;margin-left:auto"></select></h2>
+      <div id="msgList" class="panel" style="background:var(--bg);min-height:180px;max-height:44vh;overflow:auto"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="chatInput" placeholder="Type a message…" style="max-width:520px">
+        <button class="btn" onclick="postMessage()">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="kickoffs" class="view">
+    <div class="panel">
+      <h2>Kickoffs <select id="kickChSel" style="max-width:260px"></select></h2>
+      <div class="row" style="margin:10px 0">
+        <input id="kickInput" placeholder="Propose an activity to vote on…" style="max-width:520px">
+        <button class="btn" onclick="postKickoff()">Kick off</button>
+      </div>
+      <div id="kickList" class="list"></div>
+    </div>
+  </section>
+
+  <section id="leaderboard" class="view">
+    <div class="panel">
+      <h2>Leaderboard — most active members</h2>
+      <table><thead><tr><th>#</th><th>Member</th><th>Messages</th><th>Kickoffs</th><th>Promotes</th></tr></thead>
+      <tbody id="lbBody"></tbody></table>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const me = {id:'anon', username:'You', avatar_url:''};
+let channels = [], members = [], kickoffs = {};
+
+const $ = s => document.querySelector(s);
+const esc = s => (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  if(!r.ok) throw new Error((r.status)+' '+path);
+  return r.json();
+}
+function toast(msg, kind){
+  const t=$('#toast'); t.textContent=msg; t.className='toast show '+(kind||'');
+  setTimeout(()=>t.className='toast show',1800);
+}
+
+async function load(){
+  try{
+    [members, channels] = await Promise.all([api('/users'), api('/channels')]);
+    kickoffs = {};
+    for(const ch of channels){
+      try{ kickoffs[ch.id] = await api('/channels/'+ch.id+'/kickoffs'); }catch(e){ kickoffs[ch.id]=[]; }
+    }
+    refresh(); toast('Synced','ok');
+  }catch(e){ console.error(e); toast('Load failed: '+e.message,'err'); }
+}
+
+function refresh(){
+  // dashboard
+  let totalMsgs=0; for(const ch of channels) totalMsgs += (kickoffs[ch.id]||[]).length;
+  $('#cMembers').textContent = members.length;
+  $('#cChannels').textContent = channels.length;
+  $('#cKickoffs').textContent = Object.values(kickoffs).reduce((a,k)=>a+k.length,0);
+  $('#cMessages').textContent = '—';
+  // member list
+  $('#mCount').textContent = members.length+' online';
+  $('#memberList').innerHTML = members.length ? members.map(m=>`
+    <div class="item">
+      <div class="avatar">${esc(first(m.username))}</div>
+      <div class="who">
+        <div class="nm">${esc(m.username)} ${m.id===me.id?'<span class="badge">you</span>':''}</div>
+        <div class="meta">${esc(m.status||'offline')}</div>
+      </div>
+      <span class="badge ${m.role==='admin'?'role-admin':'role-member'}">${esc(m.role||'member')}</span>
+    </div>`).join('') : '<div class="empty">Nobody yet. Set your name to join.</div>';
+  // channels
+  $('#channelList').innerHTML = channels.length ? channels.map(c=>`
+    <div class="item">
+      <div class="who"><div class="nm"># ${esc(c.name)}</div><div class="meta">${(c.member_ids||[]).length} members</div></div>
+      <button class="btn danger" onclick='delCh("${c.id}")'>Leave</button>
+    </div>`).join('') : '<div class="empty">No channels. Create one.</div>';
+  // selects
+  const opts = channels.map(c=>`<option value="${c.id}"># ${esc(c.name)}</option>`).join('');
+  $('#chatSel').innerHTML = opts || '<option>No channels</option>';
+  $('#kickChSel').innerHTML = opts || '<option>No channels</option>';
+  renderChat(); renderKickoffs(); renderLeaderboard(); renderProfile();
+}
+
+function renderProfile(){
+  $('#me').textContent = me.username+' · '+me.id;
+  $('#profileBox').innerHTML = `
+    <div class="avatar" style="width:40px;height:40px;font-size:16px">${esc(first(me.username))}</div>
+    <div><div style="font-weight:600">${esc(me.username)} ${me.id===me.id?'':''}</div>
+    <div style="color:var(--muted);font-size:12px">ID: <code>${esc(me.id)}</code></div></div>`;
+}
+
+function renderChat(){
+  const id = $('#chatSel').value; if(!id){ $('#msgList').innerHTML='<div class="empty">No channel</div>'; return; }
+  api('/channels/'+id+'/messages').then(list=>{
+    $('#msgList').innerHTML = list.length ? list.map(m=>`
+      <div class="msg">
+        <div class="head"><span class="who">${esc(byId(m.user_id)||{username:'?'}).username}</span><span class="when">${rel(m.timestamp)}</span></div>
+        <div class="body">${esc(m.content)}</div>
+      </div>`).join('') : '<div class="empty">No messages yet — say hi.</div>';
+    $('#msgList').scrollTop = $('#msgList').scrollHeight;
+  }).catch(()=>{});
+}
+
+function renderKickoffs(){
+  const id = $('#kickChSel').value; if(!id){ $('#kickList').innerHTML='<div class="empty">No channel</div>'; return; }
+  const list = kickoffs[id]||[];
+  $('#kickList').innerHTML = list.length ? list.map(k=>`
+    <div class="item">
+      <div class="who"><div class="nm">${esc(k.text)}</div><div class="meta">${esc(byId(k.author_id)||{username:'?'}).username} · ${rel(k.created_at)}</span></div>
+      <button class="btn" onclick='promote("${k.id}")'>▲ ${k.promotes}</button>
+    </div>`).join('') : '<div class="empty">No kickoffs. Propose something.</div>';
+}
+
+function renderLeaderboard(){
+  api('/stats/leaderboard').then(list=>{
+    const rows = list.map(s=>({id:s.user_id, ...s})).sort((a,b)=>b.message_count-a.message_count);
+    $('#lbBody').innerHTML = rows.length ? rows.map((r,i)=>`
+      <tr><td class="rank">${i+1}</td>
+      <td><div class="item" style="padding:4px 0"><div class="avatar" style="width:26px;height:26px;font-size:11px">${esc(first(byId(r.id).username||'?'))}</div>${esc(byId(r.id).username||'anon')}</div></td>
+      <td>${r.message_count}</td><td>${r.kickoffs_created}</td><td>${r.promotes_given}</td></tr>`).join('') : '<tr><td colspan=4 class="empty">No data yet</td></tr>';
+  }).catch(()=>{});
+}
+
+// actions
+function first(s){return (s||'?').trim().charAt(0).toUpperCase();}
+function byId(id){return (members.find(m=>m.id===id)||{username:'?',status:'offline'});}
+function rel(ts){try{const d=new Date(ts),n=Date.now(),s=(n-d)/1000;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}catch(e){return ts;}}
+
+async function setName(){
+  const v=$('#newName').value.trim(); if(!v)return;
+  try{ await api('/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:v})}); me.username=v; toast('Name set','ok'); load(); }catch(e){toast(e.message,'err');}
+}
+async function createChannel(){
+  const v=$('#newChName').value.trim(); if(!v)return;
+  try{ await api('/channels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:v,type:0})}); $('#newChName').value=''; toast('Channel created','ok'); load(); }catch(e){toast(e.message,'err');}
+}
+async function delCh(id){ try{ await api('/channels/'+id+'/members',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:me.id})}); load(); }catch(e){toast(e.message,'err');} }
+async function postMessage(){
+  const id=$('#chatSel').value, v=$('#chatInput').value.trim(); if(!id||!v)return;
+  try{ await api('/channels/'+id+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:v})}); $('#chatInput').value=''; load(); }catch(e){toast(e.message,'err');}
+}
+async function postKickoff(){
+  const id=$('#kickChSel').value, v=$('#kickInput').value.trim(); if(!id||!v)return;
+  try{ await api('/channels/'+id+'/kickoffs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:v})}); $('#kickInput').value=''; toast('Kickoff posted','ok'); load(); }catch(e){toast(e.message,'err');}
+}
+async function promote(id){ try{ await api('/kickoffs/'+id+'/promote',{method:'POST'}); load(); }catch(e){toast(e.message,'err');} }
+
+// navigation
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('#'+b.dataset.view).classList.add('active');
+  if(b.dataset.view==='chat')renderChat(); if(b.dataset.view==='kickoffs')renderKickoffs();
+});
+$('#chatSel').onchange=renderChat; $('#kickChSel').onchange=renderKickoffs;
+$('#chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')postMessage();});
+$('#kickInput').addEventListener('keydown',e=>{if(e.key==='Enter')postKickoff();});
+
+// init
+me.id = (location.search.match(/[?&]uid=([^&]+)/)||[])[1]||'anon';
+me.username = me.id==='anon'?'You':(location.search.match(/[?&]name=([^&]+)/||[])[1]||'You');
+$('#conn').querySelector('span:last-child') && ($('#dot').classList.add('online'), $('#connTxt').textContent='live');
+load();
+setInterval(load, 8000);
+</script>
+</body>
+</html>
