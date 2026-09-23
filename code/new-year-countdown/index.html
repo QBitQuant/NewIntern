@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Year Countdown</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #05060d; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; }
+  #scene { position: fixed; inset: 0; }
+  canvas { display: block; position: absolute; inset: 0; }
+  #wrap {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 1.4rem; padding: 2rem;
+  }
+  #target { font-size: clamp(1.1rem, 4vw, 2rem); letter-spacing: .35em; text-transform: uppercase; color: #ffd86b; text-shadow: 0 0 18px rgba(255,216,107,.5); margin-bottom: .4rem; }
+  #count { display: flex; gap: clamp(.4rem, 3vw, 1.6rem); flex-wrap: wrap; justify-content: center; align-items: stretch; }
+  .block { display: flex; flex-direction: column; align-items: center; min-width: clamp(58px, 17vw, 110px); }
+  .block .num { font-size: clamp(2.6rem, 13vw, 7rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgba(120,180,255,.55); }
+  .block .lbl { margin-top: .5rem; font-size: clamp(.6rem, 2.4vw, .85rem); letter-spacing: .3em; text-transform: uppercase; color: #9fb0d0; }
+  #sep { font-size: clamp(2.6rem, 13vw, 7rem); font-weight: 800; align-self: flex-start; margin-top: -.2rem; opacity: .5; }
+  #celebrate { display: none; text-align: center; gap: 1rem; flex-direction: column; }
+  #celebrate h1 { font-size: clamp(3rem, 16vw, 9rem); font-weight: 800; background: linear-gradient(90deg,#ffd86b,#ff7bda,#7be0ff,#ffd86b); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 4s linear infinite; background-size: 300% 100%; }
+  #celebrate p { font-size: clamp(1rem, 4vw, 1.5rem); color: #cdd8f0; letter-spacing: .2em; text-transform: uppercase; }
+  @keyframes shimmer { from { background-position: 0% 0; } to { background-position: 300% 0; } }
+</style>
+</head>
+<body>
+  <div id="scene">
+    <canvas id="bg"></canvas>
+    <div id="wrap">
+      <div id="target">Counting down to New Year</div>
+      <div id="count">
+        <div class="block"><span class="num" id="days">0</span><span class="lbl">Days</span></div>
+        <div id="sep">:</div>
+        <div class="block"><span class="num" id="hours">0</span><span class="lbl">Hours</span></div>
+        <div id="sep">:</div>
+        <div class="block"><span class="num" id="mins">0</span><span class="lbl">Minutes</span></div>
+        <div id="sep">:</div>
+        <div class="block"><span class="num" id="secs">0</span><span class="lbl">Seconds</span></div>
+      </div>
+      <div id="celebrate">
+        <h1 id="greet">Happy New Year!</h1>
+        <p id="yearLabel"></p>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var daysEl = $("days"), hoursEl = $("hours"), minsEl = $("mins"), secsEl = $("secs");
+  var countBox = $("count"), target = $("target"), celebrate = $("celebrate"), greet = $("greet"), yearLabel = $("yearLabel");
+
+  function nextNewYear(now) {
+    var y = now.getFullYear() + 1;
+    return new Date(y, 0, 1, 0, 0, 0, 0);
+  }
+
+  function pad(n) { return n < 10 ? "0" + n : String(n); }
+
+  function update() {
+    var now = new Date();
+    var target = nextNewYear(now);
+    var diff = target - now;
+    if (diff <= 0) {
+      countBox.style.display = "none";
+      target.style.display = "none";
+      celebrate.style.display = "flex";
+      greet.textContent = "Happy New Year!";
+      yearLabel.textContent = target.getFullYear();
+      return;
+    }
+    var s = Math.floor(diff / 1000);
+    var d = Math.floor(s / 86400); s -= d * 86400;
+    var h = Math.floor(s / 3600); s -= h * 3600;
+    var m = Math.floor(s / 60); s -= m * 60;
+    daysEl.textContent = pad(d);
+    hoursEl.textContent = pad(h);
+    minsEl.textContent = pad(m);
+    secsEl.textContent = pad(s);
+  }
+
+  // Fireworks
+  var canvas = document.getElementById("bg");
+  var ctx = canvas.getContext("2d");
+  var W, H, rockets = [], particles = [];
+  var colors = ["#ffd86b", "#ff7bda", "#7be0ff", "#b7ff8a", "#ff9d5c", "#c49bff"];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function launch() {
+    var targetY = Math.random() * H * 0.55 + H * 0.05;
+    var x = Math.random() * W * 0.8 + W * 0.1;
+    rockets.push({ x: x, y: H, targetY: targetY, vx: (Math.random() - 0.5) * 1.2, color: colors[Math.floor(Math.random() * colors.length)] });
+  }
+
+  function burst(r) {
+    var count = Math.floor(Math.random() * 70 + 90);
+    for (var i = 0; i < count; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = Math.random() * 5 + 1;
+      particles.push({ x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: Math.random() * 40 + 40, color: r.color, glow: Math.random() > 0.5 });
+    }
+  }
+
+  function loop() {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(5,6,13,0.22)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "lighter";
+
+    for (var i = rockets.length - 1; i >= 0; i--) {
+      var r = rockets[i];
+      ctx.beginPath();
+      ctx.fillStyle = r.color;
+      ctx.shadowBlur = 12; ctx.shadowColor = r.color;
+      ctx.arc(r.x, r.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      r.x += r.vx; r.y -= 3.2; r.vy = (r.vy || 0) + 0.02;
+      if (r.y <= r.targetY || r.y - 3.2 < r.targetY) {
+        burst(r); rockets.splice(i, 1);
+      }
+    }
+
+    for (var j = particles.length - 1; j >= 0; j--) {
+      var p = particles[j];
+      p.vx *= 0.985; p.vy *= 0.985; p.vy += 0.045; p.x += p.vx; p.y += p.vy; p.life--;
+      ctx.globalAlpha = Math.max(0, p.life / 80);
+      ctx.beginPath();
+      ctx.fillStyle = p.color;
+      if (p.glow) { ctx.shadowBlur = 14; ctx.shadowColor = p.color; }
+      ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      if (p.life <= 0) particles.splice(j, 1);
+    }
+
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.globalCompositeOperation = "source-over";
+    requestAnimationFrame(loop);
+  }
+
+  setInterval(update, 1000);
+  update();
+  loop();
+  setInterval(function () { if (countBox.style.display !== "none") launch(); }, 750);
+})();
+</script>
+</body>
+</html>
